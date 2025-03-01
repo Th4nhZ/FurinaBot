@@ -9,6 +9,7 @@ from aiohttp import ClientSession
 
 
 from bot import FurinaBot
+from keep_alive import keep_alive
 from settings import TOKEN
        
 
@@ -69,4 +70,5 @@ async def main() -> None:
         async with FurinaBot(pool=pool, client_session=client_session) as bot:
             await bot.start(TOKEN)
 
+keep_alive()
 asyncio.run(main())
