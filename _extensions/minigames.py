@@ -478,8 +478,8 @@ class Letterle(WordleABC):
         self.embed = bot.embed
         self.embed.title = "LETTERLE"
         self.embed.description = ""
-        self.embed.set_footer(text="Coded by ThanhZ | v0.2.3-beta")
-        super().__init__(bot=bot, word=letter, owner=owner, solo=False, attempt=25)
+        self.embed.set_footer(text="Coded by ThanhZ | v0.2.5-beta")
+        super().__init__(bot=bot, word=letter, owner=owner, solo=False, attempt=24)
         self.init_guess = init_guess
         self.remaining_attempt_button.label = f"Attempts: {self.attempt}"
         for letter in self.ALPHABET:
@@ -669,7 +669,7 @@ class Minigames(commands.GroupCog, group_name="minigame"):
             first_guess = Letterle.ALPHABET[randint(0, 25)]
         view = Letterle(bot=self.bot, letter=letter, owner=interaction.user, init_guess=first_guess.upper())
         embed = view.embed
-        init_result = view.check_guess(first_guess)
+        init_result = view.check_guess(first_guess.upper())
         embed.description = f"{init_result} by {interaction.user.mention}\n"
         if "GREEN" in init_result:
             embed.description += "First Guess Correct!!!"
