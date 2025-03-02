@@ -14,7 +14,7 @@ from bot import FurinaBot
 from settings import TOKEN
 
 
-ssl_file_loc = "/etc/secrets/prod-ca-2021.crt"
+ssl_file_loc = "./prod-ca-2021.crt"
 
 ssl = ssl.create_default_context(
     ssl.Purpose.SERVER_AUTH,
