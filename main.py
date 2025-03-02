@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import logging
+import ssl
 
 
 import asyncpg
@@ -11,6 +12,14 @@ from aiohttp import ClientSession
 
 from bot import FurinaBot
 from settings import TOKEN
+
+
+ssl_file_loc = "/etc/secrets/prod-ca-2021.crt"
+
+ssl = ssl.create_default_context(
+    ssl.Purpose.SERVER_AUTH,
+    cafile=ssl_file_loc
+)
        
 
 class LogFormatter(logging.Formatter):
@@ -58,7 +67,7 @@ def handle_setup_logging() -> None:
 async def main() -> None:
     os.makedirs("logs", exist_ok=True)
     handle_setup_logging()
-    async with ClientSession() as client_session, asyncpg.create_pool(user="postgres", host=os.getenv("PGHOST"), database=os.getenv("PGDATABASE"), password=os.getenv("PGPASSWORD"), command_timeout=30) as pool:
+    async with ClientSession() as client_session, asyncpg.create_pool(user="postgres", ssl=ssl, command_timeout=30) as pool:
         async with FurinaBot(pool=pool, client_session=client_session) as bot:
             await bot.start(TOKEN)
 
