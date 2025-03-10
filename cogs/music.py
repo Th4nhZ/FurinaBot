@@ -1,12 +1,8 @@
 from __future__ import annotations
 
 
-import asyncio
 import logging
-import subprocess
 import textwrap
-import threading
-from pathlib import Path
 from typing import TYPE_CHECKING, List, Union, cast
 
 
@@ -259,57 +255,7 @@ class Music(commands.Cog):
         return self.bot.embed
 
     async def cog_load(self) -> None:
-        if not self.bot.skip_lavalink:
-            version = await self.get_lavalink_jar()
-            self.start_lavalink(version)
-            await asyncio.sleep(10)
         await self.refresh_node_connection()
-
-    async def get_lavalink_jar(self) -> str:
-        async with self.bot.cs.get("https://api.github.com/repos/lavalink-devs/Lavalink/releases/latest") as response:
-            release_info = await response.json()
-        try:
-            jar_info = next(
-                (asset for asset in release_info["assets"] if asset["name"] == "Lavalink.jar"),
-                None
-            )
-            version_info = release_info["tag_name"]
-        except KeyError:
-            return
-        ll_path = Path(f"Lavalink-{version_info}.jar")
-        if ll_path.exists():
-            logging.info(f"Lavalink.jar is up-to-date (v{version_info}). Skipping download...")
-        else:
-            try:
-                file = [file for file in os.listdir() if (file.startswith("Lavalink-") and file.endswith(".jar"))]
-                os.remove(file[0])
-            except IndexError:
-                pass
-            logging.info("Deleted outdated Lavalink.jar file. Downloading new version...")
-            jar_url = jar_info["browser_download_url"]
-            async with self.bot.cs.get(jar_url) as jar:
-                with open(f"./Lavalink-{version_info}.jar", "wb") as f:
-                    f.write(await jar.read())
-                    logging.info(f"Successfully downloaded Lavalink.jar (v{version_info})")
-        return version_info
-            
-    def start_lavalink(self, version: str):
-        def run_lavalink():
-            try:
-                subprocess.run(["java", "-jar", f"Lavalink-{version}.jar"], cwd="./")
-            except FileNotFoundError as e:
-                logging.error(f"Java is not installed or not in PATH: {e}")
-                raise e
-            except subprocess.CalledProcessError as e:
-                logging.error(f"Error starting Lavalink: {e}")
-                raise e
-            except Exception as e:
-                logging.error(f"An error occured when starting Lavalink: {e}")
-        try:
-            thread = threading.Thread(target=run_lavalink, daemon=True)
-            thread.start()
-        except Exception as e:
-            pass
 
     async def cog_check(self, ctx: FurinaCtx) -> bool:
         embed = ctx.embed
@@ -335,12 +281,8 @@ class Music(commands.Cog):
             Pool.get_node()
         except wavelink.InvalidNodeException:
             await Pool.close()
-            try:
-                node = Node(uri=LAVA_URI, password=LAVA_PW, heartbeat=5.0, inactive_player_timeout=None, retries=3)
-                await Pool.connect(client=self.bot, nodes=[node])
-            except wavelink.NodeException:
-                node = Node(uri=BACKUP_LL, password=BACKUP_LL_PW, heartbeat=5.0, inactive_player_timeout=None, retries=3)
-                await Pool.connect(client=self.bot, nodes=[node])
+            node = Node(uri=LAVA_URI, password=LAVA_PW, heartbeat=5.0, inactive_player_timeout=None, retries=3)
+            await Pool.connect(client=self.bot, nodes=[node])
             logging.info(f"Connected to \"{node.uri}\"")
 
     @staticmethod

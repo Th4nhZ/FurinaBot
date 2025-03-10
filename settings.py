@@ -22,7 +22,5 @@ CHECKMARK = "<a:check:1238796460569657375>"
 # Music Cog
 MUSIC_CHANNEL = 1089851760425848923
 MUSIC_WEBHOOK = os.getenv("MUSIC_WEBHOOK")
-LAVA_URI = "http://localhost:1710"
-LAVA_PW = "thanhz"
-BACKUP_LL = os.getenv("BACKUP_LL")
-BACKUP_LL_PW = os.getenv("BACKUP_LL_PW")
+LAVA_URI = os.getenv("LAVA_URI")
+LAVA_PW = os.getenv("LAVA_PW")
