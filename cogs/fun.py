@@ -302,9 +302,9 @@ Check before you trust anything today."""]
             fortune = np.random.choice(range(len(fortunes)), size=100)[-1]
             header=f"{ctx.author.mention} thought very hard before drawing a fortune slip"
         else:
-            fortune = np.random.choice(range(len(fortunes)), size=100*number)[-1]
+            fortune: int = np.random.randint(0, len(fortunes) - 1)
             header=f"{ctx.author.mention} thought {number} times before drawing a fortune slip"
-        yap: str = np.random.choice(fortune_yap[fortune], size=100)[-1]
+        yap: str = np.random.choice(fortune_yap[fortune])
         fortune_section = ui.Section(
             ui.TextDisplay(header),
             ui.TextDisplay(f"## {fortunes[fortune]}"),
@@ -321,11 +321,11 @@ Check before you trust anything today."""]
     @commands.command(name='dice', aliases=['roll'], description="Roll a dice 6")
     async def dice_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
         if number == 1 or number not in range(1, 1000):
-            rand_num = np.random.choice(6)
+            rand_num = np.random.randint(1, 7)
             header = f"{ctx.author.mention} rolled a dice"
             seq = None
         else:
-            seq: List[int] = np.random.choice(6, size=number).tolist()
+            seq: List[int] = np.random.randint(1, 7, size=number).tolist()
             seq: List[str] = [str(seq_) for seq_ in seq]
             rand_num = seq[-1]
             seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
