@@ -319,21 +319,30 @@ Check before you trust anything today."""]
         await ctx.send(view=view, silent=True)
 
     @commands.command(name='dice', aliases=['roll'], description="Roll a dice 6")
-    async def dice(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
-        embed = self.bot.embed
+    async def dice_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
         if number == 1 or number not in range(1, 1000):
-            rand_num = self.generate_random_number(1, 6)[-1]
-            embed.set_author(name=f"{ctx.author.display_name} rolled a dice",
-                            icon_url="https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
+            rand_num = np.random.choice(6)
+            header = f"{ctx.author.mention} rolled a dice"
+            seq = None
         else:
-            seq = self.generate_random_number(1, 6, number)
-            seq = [str(seq_) for seq_ in seq]
+            seq: List[int] = np.random.choice(6, size=number).tolist()
+            seq: List[str] = [str(seq_) for seq_ in seq]
             rand_num = seq[-1]
-            embed.add_field(name="History:", value=f"```\n{' '.join(seq[:500]) + ('...' if len(seq) > 500 else '')}\n```")
-            embed.set_author(name=f"{ctx.author.display_name} rolled a dice {number} times",
-                            icon_url="https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
-        embed.title = f"The current number is: {rand_num}"
-        await ctx.send(embed=embed)
+            seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
+            header = f"{ctx.author.mention} rolled a dice {number} times"
+        section = ui.Section(
+            ui.TextDisplay(header),
+            ui.TextDisplay(f"## {rand_num}"),
+            accessory=ui.Thumbnail(r"https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
+        )
+        if seq:
+            section.add_item(ui.TextDisplay(f"**History:**\n`{seq}`"))
+        view = ui.LayoutView(timeout=1).add_item(
+            ui.Container(section).add_item(
+                ui.TextDisplay("-# Coded by ThanhZ")
+            )
+        )
+        await ctx.send(view=view, silent=True)
 
     @commands.command(name='flip', aliases=['coin', 'coinflip'], description="Flip a coin")
     async def flip(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
