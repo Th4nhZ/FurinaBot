@@ -31,10 +31,6 @@ class Fun(FurinaCog):
         else:
             await interaction.response.send_message("https://tenor.com/kXIbVjdMB8x.gif")
 
-    @staticmethod
-    def generate_random_number(min_num: int, max_num: int, number: int = 1) -> List[int]:
-        return np.random.randint(min_num, max_num + 1, 100*number).tolist()
-
     @commands.command(name='fortune', aliases=['lucky', 'slip', 'fortuneslip'], description="Draw a fortune slip")
     async def fortune_slip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
         fortunes: List[str] = [
@@ -345,21 +341,29 @@ Check before you trust anything today."""]
         await ctx.send(view=view, silent=True)
 
     @commands.command(name='flip', aliases=['coin', 'coinflip'], description="Flip a coin")
-    async def flip(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
-        embed = self.bot.embed
+    async def flip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
         if number == 1 or number not in range(1, 1000):
-            rand_flip: List[str] = np.random.choice(["Head", "Tail"], size=100).tolist()[-1]
-            embed.set_author(name=f"{ctx.author.display_name} flipped a coin",
-                            icon_url="https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
+            rand_flip: List[str] = np.random.choice(["Head", "Tail"])
+            header = f"{ctx.author.display_name} flipped a coin"
         else:
-            seq: List[str] = np.random.choice(["Head", "Tail"], size=100*number).tolist()
+            seq: List[str] = np.random.choice(["Head", "Tail"], size=number).tolist()
             rand_flip = seq[-1]
-            seq = [seq_[0] for seq_ in seq]
-            embed.add_field(name="History:", value=f"```\n{''.join(seq[:500]) + ('...' if len(seq) > 500 else '')}\n```")
-            embed.set_author(name=f"{ctx.author.display_name} flipped a coin {number} times",
-                            icon_url="https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
-        embed.title = f"{rand_flip}"
-        await ctx.send(embed=embed)
+            seq: List[str] = [seq_[0] for seq_ in seq]
+            seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
+            header = f"{ctx.author.display_name} flipped a coin {number} times"
+        section = ui.Section(
+            ui.TextDisplay(header),
+            ui.TextDisplay(f"## {rand_flip}"),
+            accessory=ui.Thumbnail(r"https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
+        )
+        if seq:
+            section.add_item(ui.TextDisplay(f"**History:**\n`{seq}`"))
+        view = ui.LayoutView(timeout=1).add_item(
+            ui.Container(section).add_item(
+                ui.TextDisplay("-# Coded by ThanhZ")
+            )
+        )
+        await ctx.send(view=view, silent=True)
 
     @commands.command(name='8ball', description="Ask the magic 8 ball")
     async def magic_eight_ball(self, ctx: FurinaCtx, *, question: str) -> None:
