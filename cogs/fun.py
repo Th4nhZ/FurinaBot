@@ -344,13 +344,13 @@ Check before you trust anything today."""]
     async def flip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
         if number == 1 or number not in range(1, 1000):
             rand_flip: List[str] = np.random.choice(["Head", "Tail"])
-            header = f"{ctx.author.display_name} flipped a coin"
+            header = f"{ctx.author.mention} flipped a coin"
         else:
             seq: List[str] = np.random.choice(["Head", "Tail"], size=number).tolist()
             rand_flip = seq[-1]
             seq: List[str] = [seq_[0] for seq_ in seq]
             seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
-            header = f"{ctx.author.display_name} flipped a coin {number} times"
+            header = f"{ctx.author.mention} flipped a coin {number} times"
         section = ui.Section(
             ui.TextDisplay(header),
             ui.TextDisplay(f"## {rand_flip}"),
