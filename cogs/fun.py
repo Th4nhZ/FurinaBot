@@ -21,7 +21,7 @@ class Fun(FurinaCog):
 
     async def cog_unload(self):
         self.bot.tree.remove_command(self.ctx_menu_liemeter.name, type=self.ctx_menu_liemeter.type)
-    
+
     async def lie_detector(self, interaction: Interaction, message: Message):
         if message.author.id == self.bot.user.id:
             await interaction.response.send_message("I always tell the truth")
@@ -34,11 +34,11 @@ class Fun(FurinaCog):
     @commands.command(name='fortune', aliases=['lucky', 'slip', 'fortuneslip'], description="Draw a fortune slip")
     async def fortune_slip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
         fortunes: List[str] = [
-            "Great Fortune", 
-            "Good Fortune", 
-            "Modest Fortune", 
-            "Rising Fortune", 
-            "Misfortune", 
+            "Great Fortune",
+            "Good Fortune",
+            "Modest Fortune",
+            "Rising Fortune",
+            "Misfortune",
             "Great Misfortune"
         ]
         fortune_yap: List[List[str]] = [
@@ -389,7 +389,7 @@ Check before you trust anything today."""]
             "Cannot predict now",
             "Concentrate and ask again"]
         embed = self.bot.embed
-        embed.set_author(name=f"{ctx.author.display_name} asked the magic 8 ball", 
+        embed.set_author(name=f"{ctx.author.display_name} asked the magic 8 ball",
                          icon_url=r"https://th.bing.com/th/id/R.94318dc029cf3858ebbd4a5bd95617d9?rik=%2bjjVGtbqXgWhQA&pid=ImgRaw&r=0")
         embed.description = f"> {question}\n- **Magic 8 Ball:** `{np.random.choice(answers)}`"
         await ctx.send(embed=embed)

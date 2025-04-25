@@ -11,9 +11,10 @@ from typing import TYPE_CHECKING, Dict, Optional
 
 import aiohttp
 import asqlite
-import dateutil.parser
+import dateparser
 import discord
-from discord import app_commands, Color, Embed
+import docstring_parser
+from discord import app_commands, ui, Color, Embed, Member
 from discord.ext import commands
 from discord.ui import Select
 from wavelink import NodeStatus, Pool
@@ -53,8 +54,8 @@ class MemberStatus(Enum):
     online  = ":green_circle: `Online`"
     offline = ":black_circle: `Offline`"
     idle    = ":yellow_circle: `Idling`"
-    dnd     = ":red_circle: `DND`"
-    
+    dnd     = ":red_circle: `Do Not Disturb`"
+
 
 NODE_STATUSES: Dict[NodeStatus, str] = {
     NodeStatus.CONNECTED: ":white_check_mark:",
@@ -69,7 +70,7 @@ class Utils(FurinaCog):
         self.pool = await asqlite.create_pool(pathlib.Path() / 'db' / 'utils.db')
         await self.__update_custom_prefixes()
         return await super().cog_load()
-    
+
     async def __update_custom_prefixes(self):
         async with self.pool.acquire() as db:
             await db.execute(
@@ -82,7 +83,7 @@ class Utils(FurinaCog):
                 """)
             prefixes = await db.fetchall("""SELECT * FROM custom_prefixes""")
             self.bot.prefixes = {prefix["guild_id"]: prefix["prefix"] for prefix in prefixes}
-    
+
     @staticmethod
     def command_list_embed(*, cog: FurinaCog, prefix: str, embed: Embed) -> Embed:
         embed.title = cog.__cog_name__
@@ -115,7 +116,7 @@ class Utils(FurinaCog):
             async with self.pool.acquire() as db:
                 await db.fetchone("""SELECT 1""")
             db_ping = f"{round((perf_counter() - time) * 1000)}ms"
-            embed.add_field(name="More info", 
+            embed.add_field(name="More info",
                             value=f"Uptime: `{uptime}`\nAPI Ping: `{api_ping}`\nDatabase Ping: `{db_ping}`")
             embed.timestamp = message.created_at
             view = View().add_item(HelpSelect(self.bot))
@@ -169,40 +170,69 @@ class Utils(FurinaCog):
     async def source_command(self, ctx: FurinaCtx):
         await ctx.reply("https://github.com/Th4nhZ/FurinaBot")
 
-    @commands.command(name='help', description="Help command")
-    async def help_command(self, ctx: FurinaCtx, *, category_or_command_name: str = None):
-        """
+    @commands.command(name='help')
+    async def help_command(self, ctx: FurinaCtx, *, query: Optional[str] = None) -> None:
+        """The help command
+
+        Shows the command list of a category if it is provided.
+        Shows the command's info if a command name is provided.
+        If no argument is provided, shows the list of categories.
+
         Parameters
-        -----------
-        category_or_command_name: `str`
-            Category/Command name you need help with
+        ----------
+        query : Optional[str] = None
+            - Category/Command name you need help with
         """
         # !help
-        if category_or_command_name is None:
+        if query is None:
             embed = self.embed.set_author(name="Help Command", icon_url=ctx.author.display_avatar.url)
             view = View().add_item(HelpSelect(self.bot))
             view.message = await ctx.reply(embed=embed, view=view)
             return
-        
+
         # !help <CogName>
         cog: FurinaCog = None
         for cog_ in self.bot.cogs.keys():
-            if cog_.lower() == category_or_command_name.lower():
+            if cog_.lower() == query.lower():
                 cog = self.bot.get_cog(cog_)
                 break
         if cog and cog.__cog_name__ not in ['Hidden', 'Jishaku']:
             embed = self.command_list_embed(cog=cog, prefix=ctx.prefix, embed=self.embed)
-            return await ctx.reply(embed=embed)
-        
-        # !help <Command>
-        command = self.bot.get_command(category_or_command_name.lower())
-        if command and not command.hidden and command.name != 'jishaku':
-            embed = self.embed
-            embed.description = (f"- **__Name:__** `{command.qualified_name}`\n"
-                                 f"- **__Description:__** {command.description}\n"
-                                 f"- **__How to use:__** `{ctx.prefix}{command.qualified_name} {command.signature}`")
-            embed.set_footer(text="Aliases: " + ", ".join(alias for alias in command.aliases) if command.aliases else "")
             await ctx.reply(embed=embed)
+            return
+
+        # !help <Command>
+        command = self.bot.get_command(query.lower())
+        if command and not command.hidden and command.name != 'jishaku':
+            doc = docstring_parser.parse(command.callback.__doc__)
+            usage = command.qualified_name
+            syntax = ""
+            for param in doc.params:
+                # usage is
+                # command <required> [optional]
+                optional = param.is_optional or param.type_name.startswith("Optional") or param.default
+                usage += f" {'[' if optional else '<'}{param.arg_name}{']' if optional else '>'}"
+                # syntax is
+                # param_name : `param_type = default_value`
+                #     param description
+                syntax += f"```\n{param.arg_name}: {param.type_name}"
+                syntax += (param.default + "\n") if param.default else "\n"
+                syntax += f"    {param.description}\n```"
+
+            container = ui.Container(
+                ui.TextDisplay("## " + usage),
+                ui.TextDisplay(doc.short_description),
+                ui.Separator(),
+                ui.TextDisplay(doc.long_description),
+                ui.Separator(spacing=discord.SeparatorSize.large),
+                ui.TextDisplay("**Syntax:**\n" + syntax),
+            )
+            aliases = "**Alias(es):** " + ", ".join(alias for alias in command.aliases) if command.aliases else ""
+            if aliases:
+                container.add_item(ui.Separator())
+                container.add_item(ui.TextDisplay(aliases))
+            container.add_item(ui.TextDisplay("-# Coded by ThanhZ"))
+            await ctx.reply(view=ui.LayoutView().add_item(container))
         else:
             raise commands.BadArgument("""I don't recognize that command/category""")
 
@@ -249,36 +279,44 @@ class Utils(FurinaCog):
         )
         await ctx.reply(embed=embed)
 
-    @commands.hybrid_command(name='userinfo', aliases=['uinfo', 'whois'], description="Get info about a member")
-    async def user_info_command(self, ctx: FurinaCtx, member: Optional[discord.Member] = None):
-        """
+    @commands.hybrid_command(name='userinfo', aliases=['uinfo', 'whois'])
+    async def user_info_command(self, ctx: FurinaCtx, member: Optional[Member] = None):
+        """Get a user's info
+
+        Shows info about a member, including their name, id, status, roles,...
+        Shows your info if no member is provided.
+
         Parameters
-        -----------
-        member: `Optional[discord.Member]`
-            A member to get info from
+        ----------
+        member: Optional[Member] = None
+            - A member to get info from
         """
         member = ctx.guild.get_member(member.id if member else ctx.author.id)
-        embed = self.embed
-        embed.title = "Member Info"
-        embed.color = Color.blue()
-        embed.add_field(name="Display Name:", value=member.mention)
-        embed.add_field(name="Username:", value=member)
-        embed.add_field(name="ID:", value=member.id)
-        embed.set_thumbnail(url=member.display_avatar.url)
+        section = ui.Section(
+            f"**Username:** `{member}`",
+            f"**ID:** `{member.id}`",
+            f"**Status:** {MemberStatus[str(member.status)].value}",
+            accessory=ui.Thumbnail(member.display_avatar.url)
+        )
         account_created = int(member.created_at.timestamp())
-        embed.add_field(name="Account Created:", value=f"<t:{account_created}>\n<t:{account_created}:R>")
         server_joined = int(member.joined_at.timestamp())
-        embed.add_field(name="Server Joined:", value=f"<t:{server_joined}>\n<t:{server_joined}:R>")
-        embed.add_field(name="Status: ", value=MemberStatus[str(member.status)].value)
-        embed.add_field(name="Roles:", value=", ".join(role.mention for role in reversed(member.roles) if role.name != '@everyone'))
-        if member.activity:
-            embed.add_field(
-                name="Activity:",
-                value=f"**{str.capitalize(member.activity.type.name)}**: `{member.activity.name}`"
-                if member.activity.name != None else "`None`"
-            )
-        embed.timestamp = ctx.message.created_at
-        await ctx.reply(embed=embed)
+        container = ui.Container(
+            ui.TextDisplay(f"## {member.display_name}" + (" (Bot)" if member.bot else "")),
+            section,
+            ui.Separator(),
+            ui.TextDisplay(f"**Account Created:** <t:{account_created}> or <t:{account_created}:R>"),
+            ui.TextDisplay(f"**Server Joined:** <t:{server_joined}> or <t:{server_joined}:R>"),
+            ui.TextDisplay(f"**Roles ({len(member.roles) - 1}):** ```{', '.join(role.name for role in reversed(member.roles) if role.name != '@everyone')}```")
+        )
+        if member.activities:
+            container.add_item(ui.Separator())
+            _activities = "**Activities:**\n"
+            for i, activity in enumerate(member.activities, 1):
+                _activities += f"{i}. **{activity.type.name.capitalize()}"
+                _activities += f"{':** ' + activity.name if activity.name else '**'}\n"
+            container.add_item(ui.TextDisplay(_activities))
+        container.add_item(ui.TextDisplay("-# Coded by ThanhZ"))
+        await ctx.reply(view=ui.LayoutView().add_item(container))
 
     @staticmethod
     async def dictionary_call(word: str) -> PaginatedView:
@@ -344,54 +382,57 @@ class Utils(FurinaCog):
                 ).set_footer(text="Coded by ThanhZ")
         return PaginatedView(timeout=300, embeds=embeds)
 
-    @commands.hybrid_command(name='dictionary', aliases=['dict'], description="Find a word in the dictionary")
+    @commands.hybrid_command(name='dictionary', aliases=['dict'])
     @app_commands.allowed_installs(guilds=True, users=True)
     async def dict_command(self, ctx: FurinaCtx, word: str):
-        """
-        Find a word in the dictionary
-        
+        """Lookup a word in the dictionary
+
+        Use DictionaryAPI to look up a word.
+        Note that it can only look up the first word, every other words after will be ignored.
+
         Parameters
-        -----------
-        word: `str`
-            - The word, note that it only get the first word
+        ----------
+        word: str
+            - The word to look up
         """
         view = await self.dictionary_call(word.split()[0])
         view.message = await ctx.reply(embed=view.embeds[0], view=view)
 
-    @commands.command(name='wordoftheday', aliases=['wotd'], description="View today's word")
-    async def wotd_command(self, ctx: FurinaCtx, day: str = None):
-        """View today's word, or any past day's word
+    @commands.command(name='wordoftheday', aliases=['wotd'])
+    async def wotd_command(self, ctx: FurinaCtx, *, date: Optional[str] = None):
+        """View today's word
+
+        Shows today's, or any day's word of the day.
+        Can take any date format, even human friendly ones.
+        Like 'yesterday', 'last month',...
 
         Parameters
-        -----------
-        day: `str`
-            - The day you want to view, with yyyy-mm-dd format
+        ----------
+        date: Optional[str] = None
+            - The date to get word of the day from
         """
-        embed = self.bot.embed
-        if day:
-            try:
-                date = dateutil.parser.parse(day)
-                day = date.strftime(r"%Y-%m-%d")
-            except ValueError:
-                date = datetime.datetime.now()
-                day = date.strftime(r"%Y-%m-%d")
-        else:
-            date = datetime.datetime.now()
-            day = date.strftime(r"%Y-%m-%d")
+        date_ = dateparser.parse(
+            date if date else datetime.datetime.now(tz=datetime.timezone.utc).strftime(r"%Y-%m-%d"),
+            settings={'TIMEZONE': 'UTC', 'RETURN_AS_TIMEZONE_AWARE': True}
+        )
+        date = date_.strftime(r"%Y-%m-%d")
         day_check = r"202\d-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"
-        if not re.match(day_check, day):
+        if not re.match(day_check, date):
             return await ctx.reply("You entered a very old date, try a newer one")
-        ddmmyyyy = date.strftime(r"%d/%m/%Y")
-        embed.set_author(name=f"Word of the Day ({ddmmyyyy})")
-        async with self.bot.cs.get(f"https://api.wordnik.com/v4/words.json/wordOfTheDay?date={day}&api_key={WORDNIK_API}") as response:
+        ddmmyyyy = date_.strftime(r"%A %d/%m/%Y")
+        async with self.bot.cs.get(f"https://api.wordnik.com/v4/words.json/wordOfTheDay?date={date}&api_key={WORDNIK_API}") as response:
             if not response.status == 200:
                 return await ctx.reply("Something went wrong")
             content: Dict = await response.json()
-        embed.title = f"{content['word']} ({content['definitions'][0]['partOfSpeech']})"
-        embed.description = ">>> " + content['definitions'][0]['text']
-        embed.add_field(name="Note:", value=content['note'])
-        await ctx.reply(embed=embed)
-        
-        
+        container = ui.Container(
+            ui.TextDisplay(f"## {content['word']} ({content['definitions'][0]['partOfSpeech']})"),
+            ui.TextDisplay("**Definition:**\n>>> " + content['definitions'][0]['text']),
+            ui.Separator(),
+            ui.TextDisplay("**Fun fact:**\n" + content['note']),
+            ui.TextDisplay(f"-# Coded by ThanhZ | Date: `{ddmmyyyy}`")
+        )
+        await ctx.reply(view=ui.LayoutView().add_item(container))
+
+
 async def setup(bot: FurinaBot):
     await bot.add_cog(Utils(bot))
