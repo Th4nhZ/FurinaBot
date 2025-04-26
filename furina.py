@@ -12,7 +12,7 @@ from discord import app_commands, utils
 from discord.ext import commands
 from discord.ext.commands import errors, when_mentioned_or
 
-from settings import ACTIVITY_NAME, CHECKMARK, CROSS, DEBUG_WEBHOOK, DEFAULT_PREFIX
+from settings import *
 
 
 class FurinaCtx(commands.Context):
@@ -75,6 +75,7 @@ class FurinaBot(commands.Bot):
                                           name=ACTIVITY_NAME,
                                           state="Playing: N̸o̸t̸h̸i̸n̸g̸")
         )
+        self.owner_id = OWNER_ID
         self.skip_lavalink = skip_lavalink
         self.cs = client_session
         self.prefixes: typing.Dict[int, str] = {}
@@ -139,6 +140,12 @@ class FurinaCog(commands.Cog):
         
     async def cog_load(self) -> None:
         logging.info(f"Cog {self.__cog_name__} has been loaded")
+
+    async def cog_unload(self):
+        if hasattr(self, 'pool'):
+            # by design we use one pool to separate database for each cog
+            # so we will gracefully close the pool when unload the cog
+            await self.pool.close()
 
     @property
     def embed(self) -> discord.Embed:

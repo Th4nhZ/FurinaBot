@@ -311,7 +311,7 @@ Check before you trust anything today."""]
             fortune_section,
             ui.TextDisplay("-# This is just for fun, take it as a grain of salt | Coded by ThanhZ"),
         )
-        view = ui.LayoutView(timeout=1).add_item(container)
+        view = ui.LayoutView().add_item(container)
         await ctx.send(view=view, silent=True)
 
     @commands.command(name='dice', aliases=['roll'], description="Roll a dice 6")
@@ -333,7 +333,7 @@ Check before you trust anything today."""]
         )
         if seq:
             section.add_item(ui.TextDisplay(f"**History:**\n`{seq}`"))
-        view = ui.LayoutView(timeout=1).add_item(
+        view = ui.LayoutView().add_item(
             ui.Container(section).add_item(
                 ui.TextDisplay("-# Coded by ThanhZ")
             )
@@ -358,7 +358,7 @@ Check before you trust anything today."""]
         )
         if seq:
             section.add_item(ui.TextDisplay(f"**History:**\n`{seq}`"))
-        view = ui.LayoutView(timeout=1).add_item(
+        view = ui.LayoutView().add_item(
             ui.Container(section).add_item(
                 ui.TextDisplay("-# Coded by ThanhZ")
             )

@@ -122,49 +122,80 @@ class Utils(FurinaCog):
             view = View().add_item(HelpSelect(self.bot))
             view.message = await message.channel.send(embed=embed, view=view, reference=message)
 
-    @commands.command(name='ping', description="Get the ping to discord api and lavalink nodes")
-    async def ping_command(self, ctx: FurinaCtx):
-        await ctx.defer()
-        bot_latency = self.bot.latency
-        voice_latency = ctx.guild.voice_client.ping if ctx.guild.voice_client else -1
+    @commands.command(name='ping')
+    async def ping_command(self, ctx: FurinaCtx) -> None:
+        """Get the bot's pings
+
+        Get latencies of bot to Discord server, to Voice server and to Database.
+        For voice, `-1ms` means it is not connected to any voice channels.
+        For lavalink node:
+            :white_check_mark: means it is connected.
+            :arrows_clockwise: means it is still trying to connect (maybe the password is wrong).
+            :negative_squared_cross_mark: means it is disconnected.
+        """
+        bot_latency: float = self.bot.latency
+        voice_latency: float | int = ctx.guild.voice_client.ping if ctx.guild.voice_client else -1
         time = perf_counter()
         async with self.pool.acquire() as db:
-            await db.execute("""SELECT 1""")
+            await db.execute("""SELECT * from custom_prefixes LIMIT 1""")
         db_latency = perf_counter() - time
-
-        embed = self.embed
-        embed.title = "Pong!"
-        embed.add_field(name="Ping:", value=f"**Text:** {bot_latency * 1000:.2f}ms\n**Voice:** {voice_latency}ms\n**Database:** {db_latency * 1000:.2f}ms")
-
+        node_statuses = ""
         for i, node in enumerate(Pool.nodes, 1):
-            node_ = Pool.get_node(node)
-            node_status = NODE_STATUSES[node_.status]
-            embed.add_field(name=f"Node {i}: {node_status}", value="", inline=False)
-        await ctx.reply(embed=embed)
+            node_statuses += f"**Node {i}:** {NODE_STATUSES[Pool.nodes[node].status]}"
+        container = ui.Container(
+            ui.TextDisplay("## Pong!"),
+            ui.Separator(),
+            ui.TextDisplay(f"**Bot Latency:** {bot_latency * 1000:.2f}ms\n"
+                           f"**Voice Latency:** {voice_latency}ms\n"
+                           f"**Database Latency:** {db_latency * 1000:.2f}ms"),
+            ui.TextDisplay("-# Coded by ThanhZ", row=9)
+        )
+        if node_statuses:
+            container.add_item(ui.Separator())
+            container.add_item(ui.TextDisplay(node_statuses))
+        await ctx.reply(view=ui.LayoutView().add_item(container))
 
-    @commands.command(name="prefix", description="Set a custom prefix for your server")
+    @commands.command(name="prefix")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     async def prefix_command(self, ctx: FurinaCtx, prefix: str):
-        prefix = prefix.strip().replace('"', "").replace("'", "")
-        embed = self.embed
+        """Set the bot prefix
+
+        Can only be used by member with `Manage Server` permission.
+        Can **not** be used in DM.
+        New prefix cannot be more than 3 characters long.
+        Quotation marks *will be cleared*! So `"a.` ~ `a.`
+        Set the prefix to either: `clear`, `reset`, `default`, will reset to the default prefix 「`!`」
+
+        Parameters
+        ----------
+        prefix: str
+            - The new prefix
+        """
+        prefix: str = prefix.strip().replace('"', "").replace("'", "")
+        container = ui.Container(ui.TextDisplay("-# Coded by ThanhZ", row=9))
+        if len(prefix) > 3 or not prefix:
+            container.add_item(ui.TextDisplay(f"{CROSS} **Invalid prefix**"))
+            await ctx.reply(view=ui.LayoutView().add_item(container))
+            return
         async with self.pool.acquire() as db:
             if prefix in ['clear', 'reset', 'default', DEFAULT_PREFIX]:
-                await db.execute("""DELETE FROM custom_prefixes WHERE guild_id = ?""", ctx.guild.id)
+                await db.execute(
+                    """
+                    DELETE FROM custom_prefixes WHERE guild_id = ?
+                    """, ctx.guild.id)
             else:
-                if len(prefix) > 3 or not prefix:
-                    await ctx.cross()
-                    embed.description = "Prefix is too long or is empty, try again with different prefix"
-                    return await ctx.reply(embed=embed)
                 await db.execute(
                     """
                     INSERT OR REPLACE INTO custom_prefixes (guild_id, prefix) VALUES (?, ?)
                     """, ctx.guild.id, prefix)
-            await db.commit()
         await self.__update_custom_prefixes()
-        await ctx.tick()
-        embed.description = f"Prefix for this server has been changed to `{self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX}`"
-        await ctx.reply(embed=embed)
+        container.add_item(
+            ui.TextDisplay(
+                f"{CHECKMARK} **Prefix set to** `{self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX}`"
+            )
+        )
+        await ctx.reply(view=ui.LayoutView().add_item(container))
 
     @commands.command(name='source', aliases=['sources', 'src'], description="Source code of the bot")
     async def source_command(self, ctx: FurinaCtx):
@@ -215,9 +246,9 @@ class Utils(FurinaCog):
                 # syntax is
                 # param_name : `param_type = default_value`
                 #     param description
-                syntax += f"```\n{param.arg_name}: {param.type_name}"
+                syntax += f"\n{param.arg_name}: {param.type_name}"
                 syntax += (param.default + "\n") if param.default else "\n"
-                syntax += f"    {param.description}\n```"
+                syntax += f"    {param.description}\n"
 
             container = ui.Container(
                 ui.TextDisplay("## " + usage),
@@ -225,13 +256,14 @@ class Utils(FurinaCog):
                 ui.Separator(),
                 ui.TextDisplay(doc.long_description),
                 ui.Separator(spacing=discord.SeparatorSize.large),
-                ui.TextDisplay("**Syntax:**\n" + syntax),
+                ui.TextDisplay("-# Coded by ThanhZ", row=9)
             )
+            if syntax:
+                container.add_item(ui.TextDisplay(f"Syntax: ```{syntax}```"))
             aliases = "**Alias(es):** " + ", ".join(alias for alias in command.aliases) if command.aliases else ""
             if aliases:
                 container.add_item(ui.Separator())
                 container.add_item(ui.TextDisplay(aliases))
-            container.add_item(ui.TextDisplay("-# Coded by ThanhZ"))
             await ctx.reply(view=ui.LayoutView().add_item(container))
         else:
             raise commands.BadArgument("""I don't recognize that command/category""")
@@ -306,7 +338,8 @@ class Utils(FurinaCog):
             ui.Separator(),
             ui.TextDisplay(f"**Account Created:** <t:{account_created}> or <t:{account_created}:R>"),
             ui.TextDisplay(f"**Server Joined:** <t:{server_joined}> or <t:{server_joined}:R>"),
-            ui.TextDisplay(f"**Roles ({len(member.roles) - 1}):** ```{', '.join(role.name for role in reversed(member.roles) if role.name != '@everyone')}```")
+            ui.TextDisplay(f"**Roles ({len(member.roles) - 1}):** ```{', '.join(role.name for role in reversed(member.roles) if role.name != '@everyone')}```"),
+            ui.TextDisplay("-# Coded by ThanhZ", row=9)
         )
         if member.activities:
             container.add_item(ui.Separator())
@@ -315,7 +348,6 @@ class Utils(FurinaCog):
                 _activities += f"{i}. **{activity.type.name.capitalize()}"
                 _activities += f"{':** ' + activity.name if activity.name else '**'}\n"
             container.add_item(ui.TextDisplay(_activities))
-        container.add_item(ui.TextDisplay("-# Coded by ThanhZ"))
         await ctx.reply(view=ui.LayoutView().add_item(container))
 
     @staticmethod

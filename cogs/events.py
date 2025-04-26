@@ -3,12 +3,12 @@ from __future__ import annotations
 import traceback
 from typing import TYPE_CHECKING
 
-from discord import Activity, ActivityType, DMChannel, Message, Member
+from discord import ui, Activity, ActivityType, DMChannel, Message, Member
 from discord.ext import commands
 from wavelink import Player, Playable, TrackStartEventPayload, TrackEndEventPayload
 
 from furina import FurinaCtx, FurinaCog
-from settings import MUSIC_CHANNEL, ACTIVITY_NAME
+from settings import MUSIC_CHANNEL, ACTIVITY_NAME, CROSS
 
 
 if TYPE_CHECKING:
@@ -36,27 +36,20 @@ class BotEvents(FurinaCog):
 
         # Processing DMs
         if isinstance(message.channel, DMChannel):
-            owner = self.bot.get_user(self.bot.owner_id)
-            embed = self.bot.embed
-            embed.title = f"{message.author.mention} ({message.author.id}) sent a message"
-            embed.description = ("`" + message.content + "`") if message.content else None
-            if message.attachments:
-                content = "\n".join(message.attachments)
-            embed.timestamp = message.created_at
-
-            await owner.send(content=content, embed=embed)
+            await message.forward(self.bot.get_user(self.bot.owner_id))
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: FurinaCtx, error: commands.errors.CommandError) -> None:
-        embed = ctx.embed
+        err: str = CROSS
         if isinstance(error, commands.CommandNotFound):
             return
         elif isinstance(error, commands.MissingRequiredArgument):
-            embed.description = f"Missing required argument: `{error.param.name}`"
+            err += f" **Missing required argument:** `{error.param.name}`"
         else:
-            embed.description = f"{error}"
-        await ctx.reply(embed=embed, ephemeral=True, delete_after=60)
-        
+            err += f" **{error}**"
+        view = ui.LayoutView().add_item(ui.Container(ui.TextDisplay(err)))
+        await ctx.reply(view=view, ephemeral=True, delete_after=60)
+
         traceback.print_exception(error)
 
     @commands.Cog.listener()
