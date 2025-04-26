@@ -31,8 +31,25 @@ class Fun(FurinaCog):
         else:
             await interaction.response.send_message("https://tenor.com/kXIbVjdMB8x.gif")
 
-    @commands.command(name='fortune', aliases=['lucky', 'slip', 'fortuneslip'], description="Draw a fortune slip")
+    @commands.command(name='fortune', aliases=['lucky', 'slip', 'fortuneslip'])
     async def fortune_slip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
+        """Draw a fortune slip
+
+        Give you random fortune from 6 levels, from high to low:
+        - Great Fortune
+        - Good Fortune
+        - Modest Fortune
+        - Rising Fortune
+        - Misfortune
+        - Great Misfortune
+        Number of times thinking can only be from `1` to `9999`.
+        Otherwise will default to `1`.
+
+        Parameters
+        ----------
+        number : Optional[int] = 1
+            - How many times you want to think before drawing a slip
+        """
         fortunes: List[str] = [
             "Great Fortune",
             "Good Fortune",
@@ -302,7 +319,7 @@ Check before you trust anything today."""]
             header=f"{ctx.author.mention} thought {number} times before drawing a fortune slip"
         yap: str = np.random.choice(fortune_yap[fortune])
         fortune_section = ui.Section(
-            ui.TextDisplay(header),
+            ui.TextDisplay("### " + header),
             ui.TextDisplay(f"## {fortunes[fortune]}"),
             ui.TextDisplay(">>> " + yap),
             accessory=ui.Thumbnail("https://static.wikia.nocookie.net/gensin-impact/images/b/b0/Item_Fortune_Slip_Opened.png/revision/latest?cb=20210725221204")
@@ -314,8 +331,19 @@ Check before you trust anything today."""]
         view = ui.LayoutView().add_item(container)
         await ctx.send(view=view, silent=True)
 
-    @commands.command(name='dice', aliases=['roll'], description="Roll a dice 6")
+    @commands.command(name='dice', aliases=['roll'])
     async def dice_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
+        """Roll a dice 6
+
+        Roll a dice 6 `number` of times.
+        Number of times rolling can only be from `1` to `999`.
+        Otherwise will default to `1`.
+
+        Parameters
+        ----------
+        number : Optional[int] = 1
+            - How many times you want to roll the dice
+        """
         if number == 1 or number not in range(1, 1000):
             rand_num = np.random.randint(1, 7)
             header = f"{ctx.author.mention} rolled a dice"
@@ -327,7 +355,7 @@ Check before you trust anything today."""]
             seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
             header = f"{ctx.author.mention} rolled a dice {number} times"
         section = ui.Section(
-            ui.TextDisplay(header),
+            ui.TextDisplay("### " + header),
             ui.TextDisplay(f"## {rand_num}"),
             accessory=ui.Thumbnail(r"https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
         )
@@ -340,11 +368,23 @@ Check before you trust anything today."""]
         )
         await ctx.send(view=view, silent=True)
 
-    @commands.command(name='flip', aliases=['coin', 'coinflip'], description="Flip a coin")
+    @commands.command(name='flip', aliases=['coin', 'coinflip'])
     async def flip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
+        """Flip a coin
+
+        Flip a coin `number` of times.
+        Number of times flipping can only be from `1` to `999`.
+        Otherwise will default to `1`.
+
+        Parameters
+        ----------
+        number : Optional[int] = 1
+            - How many times you want to flip the coin
+        """
         if number == 1 or number not in range(1, 1000):
             rand_flip: List[str] = np.random.choice(["Head", "Tail"])
             header = f"{ctx.author.mention} flipped a coin"
+            seq = None
         else:
             seq: List[str] = np.random.choice(["Head", "Tail"], size=number).tolist()
             rand_flip = seq[-1]
@@ -352,7 +392,7 @@ Check before you trust anything today."""]
             seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
             header = f"{ctx.author.mention} flipped a coin {number} times"
         section = ui.Section(
-            ui.TextDisplay(header),
+            ui.TextDisplay("### " + header),
             ui.TextDisplay(f"## {rand_flip}"),
             accessory=ui.Thumbnail(r"https://cdn.7tv.app/emote/6175d52effc7244d797d15bf/4x.gif")
         )
@@ -365,8 +405,18 @@ Check before you trust anything today."""]
         )
         await ctx.send(view=view, silent=True)
 
-    @commands.command(name='8ball', description="Ask the magic 8 ball")
+    @commands.command(name='8ball')
     async def magic_eight_ball(self, ctx: FurinaCtx, *, question: str) -> None:
+        """Ask the magic 8 ball
+
+        The magic 8 ball will answer your question.
+        Take the answer as a grain of salt as it is randomized answer.
+
+        Parameters
+        ----------
+        question : str
+            - Your question
+        """
         answers: List[str] = [
             "It is certain",
             "It is decidedly so",
@@ -388,11 +438,18 @@ Check before you trust anything today."""]
             "Better not tell you now",
             "Cannot predict now",
             "Concentrate and ask again"]
-        embed = self.bot.embed
-        embed.set_author(name=f"{ctx.author.display_name} asked the magic 8 ball",
-                         icon_url=r"https://th.bing.com/th/id/R.94318dc029cf3858ebbd4a5bd95617d9?rik=%2bjjVGtbqXgWhQA&pid=ImgRaw&r=0")
-        embed.description = f"> {question}\n- **Magic 8 Ball:** `{np.random.choice(answers)}`"
-        await ctx.send(embed=embed)
+        section = ui.Section(
+            ui.TextDisplay(f"### {ctx.author.mention} asked the magic 8 ball"),
+            ui.TextDisplay(f"## {np.random.choice(answers)}"),
+            accessory=ui.Thumbnail(r"https://th.bing.com/th/id/R.94318dc029cf3858ebbd4a5bd95617d9?rik=%2bjjVGtbqXgWhQA&pid=ImgRaw&r=0")
+        )
+        container = ui.Container(
+            section,
+            ui.Separator(),
+            ui.TextDisplay(f"**Question:**\n>>> {question}"),
+            ui.TextDisplay("-# This is just for fun, take it as a grain of salt | Coded by ThanhZ")
+        )
+        await ctx.send(view=ui.LayoutView().add_item(container), silent=True)
 
 
 async def setup(bot: FurinaBot) -> None:

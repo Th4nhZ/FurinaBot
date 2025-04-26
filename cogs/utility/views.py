@@ -26,7 +26,7 @@ class View(ui.View):
         if retry_after:
             raise UIElementOnCoolDownError(retry_after=retry_after)
         return True
-    
+
     async def on_error(self, interaction: Interaction, error: Exception, item: ui.Item):
         if isinstance(error, UIElementOnCoolDownError):
             seconds = int(error.retry_after)
@@ -62,4 +62,3 @@ class PaginatedView(View):
         button.disabled = True if self.page == len(self.embeds) - 1 else False
         self.left_button.disabled = False
         await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
-        
