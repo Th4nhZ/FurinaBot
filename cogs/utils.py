@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import inspect
+import io
 import pathlib
 import platform
 import psutil
@@ -238,15 +240,35 @@ class Utils(FurinaCog):
         )
         await ctx.reply(view=ui.LayoutView().add_item(container))
 
-    @commands.command(name='source', aliases=['sources', 'src'])
-    async def source_command(self, ctx: FurinaCtx) -> None:
-        """Source code
+    @commands.command(name='source', aliases=['src'])
+    async def source_command(self, ctx: FurinaCtx, *, command: Optional[str] = "") -> None:
+        """Get the bot source code
 
-        View the source code of this bot.
-        New feature will be on `master` branch.
-        While more stable bot will be on `stable` branch.
+        Get the source code of the bot or a specific command.
+        Will return a github link to the bot if no command is provided.
+        Otherwise will try to return the command source code.
+
+        Parameters
+        ----------
+        command: Optional[str] = ""
+            - The command of which you need the source code
         """
-        await ctx.reply("https://github.com/Th4nhZ/FurinaBot")
+        cmd: Optional[commands.Command] = self.bot.get_command(command.lower())
+        file: Optional[discord.File] = None
+        if not command:
+            res: str = r"https://github.com/th4nhz/FurinaBot"
+        elif not cmd:
+            res = f"No commands named {command.lower()}"
+        else:
+            source: str = inspect.getsource(cmd.callback)
+            print(source)
+            if len(source) >= 1000:
+                res = "Source code is too long so I will send a file instead"
+                file = discord.File(io.BytesIO(source.encode('utf-8')), filename=f"{cmd.qualified_name}.py")
+            else:
+                res = f"```py\n{source}\n```"
+        await ctx.reply(res, file=file)
+
 
     @commands.command(name='help')
     async def help_command(self, ctx: FurinaCtx, *, query: Optional[str] = None) -> None:
