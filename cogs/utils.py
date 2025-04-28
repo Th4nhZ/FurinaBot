@@ -23,7 +23,7 @@ from wavelink import NodeStatus, Pool
 
 from furina import FurinaCog, FurinaCtx
 from settings import *
-from cogs.utility.views import PaginatedView
+from cogs.utility.views import PaginatedView, LayoutView
 
 
 if TYPE_CHECKING:
@@ -55,7 +55,10 @@ class HelpSelect(Select):
             prefix=self.bot.prefixes.get(interaction.guild.id) or DEFAULT_PREFIX,
         )
         container.add_item(ui.Separator()).add_item(HelpActionRow(bot=self.bot))
-        await interaction.response.edit_message(view=ui.LayoutView().add_item(container))
+        view = LayoutView().add_item(container)
+        view.message = self.view.message
+        self.view.message = None
+        await interaction.response.edit_message(view=view)
 
 
 class MemberStatus(Enum):
@@ -146,8 +149,6 @@ class Utils(FurinaCog):
                 source_section,
                 ui.Separator()
             )
-            uptime_td = discord.utils.utcnow() - self.bot.uptime
-            uptime: str = f"{uptime_td.days}d {uptime_td.seconds // 3600}h {(uptime_td.seconds // 60) % 60}m"
             bot_latency: str = f"{round(self.bot.latency * 1000)}ms"
             time = perf_counter()
             async with self.pool.acquire() as db:
@@ -155,15 +156,15 @@ class Utils(FurinaCog):
             db_latency = f"{round((perf_counter() - time) * 1000)}ms"
             container.add_item(
                 ui.TextDisplay("### More info\n"
-                               f"- **Uptime:** `{uptime}`\n"
+                               f"- **Uptime:** `{self.bot.uptime}`\n"
                                f"- **Bot Latency:** `{bot_latency}`\n"
                                f"- **Database Latency:** `{db_latency}`"
                 )
             )
             container.add_item(ui.Separator())
             container.add_item(HelpActionRow(bot=self.bot))
-            view = ui.LayoutView().add_item(container)
-            await message.channel.send(view=view, reference=message)
+            view = LayoutView().add_item(container)
+            view.message = await message.channel.send(view=view, reference=message)
 
     @commands.command(name='ping')
     async def ping_command(self, ctx: FurinaCtx) -> None:
@@ -196,7 +197,7 @@ class Utils(FurinaCog):
         if node_statuses:
             container.add_item(ui.Separator())
             container.add_item(ui.TextDisplay(node_statuses))
-        await ctx.reply(view=ui.LayoutView().add_item(container))
+        await ctx.reply(view=LayoutView().add_item(container))
 
     @commands.command(name="prefix")
     @commands.guild_only()
@@ -219,7 +220,7 @@ class Utils(FurinaCog):
         container = ui.Container(ui.TextDisplay("-# Coded by ThanhZ", row=9))
         if len(prefix) > 3 or not prefix:
             container.add_item(ui.TextDisplay(f"{CROSS} **Invalid prefix**"))
-            await ctx.reply(view=ui.LayoutView().add_item(container))
+            await ctx.reply(view=LayoutView().add_item(container))
             return
         async with self.pool.acquire() as db:
             if prefix in ['clear', 'reset', 'default', DEFAULT_PREFIX]:
@@ -238,7 +239,7 @@ class Utils(FurinaCog):
                 f"{CHECKMARK} **Prefix set to** `{self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX}`"
             )
         )
-        await ctx.reply(view=ui.LayoutView().add_item(container))
+        await ctx.reply(view=LayoutView().add_item(container))
 
     @commands.command(name='source', aliases=['src'])
     async def source_command(self, ctx: FurinaCtx, *, command: Optional[str] = "") -> None:
@@ -255,20 +256,23 @@ class Utils(FurinaCog):
         """
         cmd: Optional[commands.Command] = self.bot.get_command(command.lower())
         file: Optional[discord.File] = None
+        github: str = r"https://github.com/th4nhz/FurinaBot"
         if not command:
-            res: str = r"https://github.com/th4nhz/FurinaBot"
+            res = github
         elif not cmd:
             res = f"No commands named {command.lower()}"
         else:
             source: str = inspect.getsource(cmd.callback)
-            print(source)
+            lines, start_line = inspect.getsourcelines(cmd.callback)
+            end_line = start_line + len(lines) - 1
+            path = pathlib.Path(inspect.getfile(cmd.callback)).resolve().relative_to(pathlib.Path.cwd())
             if len(source) >= 1000:
-                res = "Source code is too long so I will send a file instead"
+                res = "Source code is too long so I will send a file instead\n"
                 file = discord.File(io.BytesIO(source.encode('utf-8')), filename=f"{cmd.qualified_name}.py")
             else:
                 res = f"```py\n{source}\n```"
+            res += f"\nHere is the corresponding github link: <{github}/tree/master/{path}#L{start_line}-L{end_line}>"
         await ctx.reply(res, file=file)
-
 
     @commands.command(name='help')
     async def help_command(self, ctx: FurinaCtx, *, query: Optional[str] = None) -> None:
@@ -299,7 +303,8 @@ class Utils(FurinaCog):
                 ui.Separator(),
                 HelpActionRow(bot=self.bot)
             )
-            await ctx.reply(view=ui.LayoutView().add_item(container))
+            view = LayoutView().add_item(container)
+            view.message = await ctx.reply(view=view)
             return
 
         # !help <CogName>
@@ -311,7 +316,8 @@ class Utils(FurinaCog):
         if cog and cog.__cog_name__ not in ['Hidden', 'Jishaku']:
             container = self.list_cog_commands(cog=cog, prefix=ctx.prefix)
             container.add_item(ui.Separator()).add_item(HelpActionRow(bot=self.bot))
-            await ctx.reply(view=ui.LayoutView().add_item(container))
+            view = LayoutView().add_item(container)
+            view.message = await ctx.reply(view=view)
             return
 
         # !help <Command>
@@ -346,7 +352,7 @@ class Utils(FurinaCog):
             if aliases:
                 container.add_item(ui.Separator())
                 container.add_item(ui.TextDisplay(aliases))
-            await ctx.reply(view=ui.LayoutView().add_item(container))
+            await ctx.reply(view=LayoutView().add_item(container))
         else:
             raise commands.BadArgument("""I don't recognize that command/category""")
 
@@ -368,7 +374,7 @@ class Utils(FurinaCog):
         ram_cached = round(ram_total - ram_used - ram_available, 2)
 
         # Disk Usage
-        disk_info = psutil.disk_usage('/')
+        disk_info = psutil.disk_usage('./')
         disk_total = round(disk_info.total / (1024 ** 3), 2)
         disk_used = round(disk_info.used / (1024 ** 3), 2)
         disk_available = round(disk_info.free / (1024 ** 3), 2)
@@ -431,7 +437,7 @@ class Utils(FurinaCog):
                 _activities += f"{i}. **{activity.type.name.capitalize()}"
                 _activities += f"{':** ' + activity.name if activity.name else '**'}\n"
             container.add_item(ui.TextDisplay(_activities))
-        await ctx.reply(view=ui.LayoutView().add_item(container))
+        await ctx.reply(view=LayoutView().add_item(container))
 
     @staticmethod
     async def dictionary_call(word: str) -> PaginatedView:
@@ -546,7 +552,21 @@ class Utils(FurinaCog):
             ui.TextDisplay("**Fun fact:**\n" + content['note']),
             ui.TextDisplay(f"-# Coded by ThanhZ | Date: `{ddmmyyyy}`")
         )
-        await ctx.reply(view=ui.LayoutView().add_item(container))
+        await ctx.reply(view=LayoutView().add_item(container))
+
+    @commands.command(name='stats', aliases=['stat'])
+    async def stats_command(self, ctx: FurinaCtx) -> None:
+        """Get the bot's stats
+
+        Get:
+        - The bot's uptime.
+        - Number of servers the bot is in.
+        - Number of prefix commands have been completed.
+        - Most recent 10 prefix commands.
+        - Number of slash commands have been completed.
+        - Most recent 10 slash commands.
+        """
+        pass
 
 
 async def setup(bot: FurinaBot):

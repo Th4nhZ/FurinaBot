@@ -83,7 +83,12 @@ class FurinaBot(commands.Bot):
     @property
     def embed(self) -> discord.Embed:
         return discord.Embed().set_footer(text="Coded by ThanhZ")
-    
+
+    @property
+    def uptime(self) -> str:
+        uptime_td = utils.utcnow() - self._startup
+        return f"`{uptime_td.days}d {uptime_td.seconds // 3600}h {(uptime_td.seconds // 60) % 60}m`"
+
     async def get_context(self, message: discord.Message, *, cls = FurinaCtx) -> FurinaCtx:
         return await super().get_context(message, cls=cls)
 
@@ -96,7 +101,7 @@ class FurinaBot(commands.Bot):
 
     async def on_ready(self) -> None:
         logging.info(f"Logged in as {self.user.name}")
-        self.uptime = utils.utcnow()
+        self._startup = utils.utcnow()
 
         try:
             embed = self.embed.set_author(name="BOT IS READY!")

@@ -62,3 +62,19 @@ class PaginatedView(View):
         button.disabled = True if self.page == len(self.embeds) - 1 else False
         self.left_button.disabled = False
         await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
+
+
+class LayoutView(ui.LayoutView):
+    def walk_children(self):
+        for child in self.children:
+            yield child
+            for grand_child in child.children:
+                yield grand_child
+                if isinstance(grand_child, ui.ActionRow):
+                    yield from grand_child.children
+
+    async def on_timeout(self) -> None:
+        for child in self.walk_children():
+            child.disabled = True
+        await self.message.edit(view=self)
+
