@@ -1,3 +1,17 @@
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 from __future__ import annotations
 
 import pathlib
@@ -26,7 +40,7 @@ class Gacha(FurinaCog):
         self.pool = await asqlite.create_pool(pathlib.Path() / 'db' / 'gacha.db')
         await self.__create_gacha_tables()
         return await super().cog_load()
-    
+
     async def __create_gacha_tables(self) -> None:
         async with self.pool.acquire() as db:
             await db.execute(
@@ -59,7 +73,7 @@ class Gacha(FurinaCog):
                 uid = uid[0] if uid else None
                 if uid is None:
                     return await ctx.reply("You have not set a UID yet! Use `/gi set <uid>` to set your UID")
-                
+
         async with self.gi as api:
             response = await api.fetch_showcase(uid)
             player_info = response.player
@@ -93,7 +107,7 @@ class Gacha(FurinaCog):
                 uid = uid[0] if uid else None
                 if uid is None:
                     return await ctx.reply("You have not set a UID yet! Use `/hsr set <uid>` to set your UID")
-                
+
         async with self.hsr as api:
             response = await api.fetch_showcase(uid)
             player_info = response.player

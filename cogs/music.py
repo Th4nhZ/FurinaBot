@@ -1,5 +1,18 @@
-from __future__ import annotations
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -9,14 +22,12 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Union, cast
 
-
 import discord, wavelink
 from discord import app_commands, ui, Color, ButtonStyle, Embed, Interaction, Message
 from discord.ext import commands
 from wavelink import (Player, Playable, Playlist, TrackSource, TrackStartEventPayload, QueueMode,
                       TrackEndEventPayload, TrackExceptionEventPayload, AutoPlayMode, Node, Pool)
 from youtube_search import YoutubeSearch
-
 
 from furina import FurinaCog, FurinaCtx
 from cogs.utility.views import PaginatedView
@@ -35,23 +46,23 @@ class TrackUtils:
     def format_len(length: int) -> str:
         minutes, seconds = divmod(length // 1000, 60)
         return f"{minutes:02d}:{seconds:02d}"
-    
+
     @property
     def formatted_len(self) -> str:
         """Convert track len from `ms` to `mm:ss` format"""
         return self.format_len(self.__track.length)
-    
+
     @property
     def shortened_name(self) -> str:
         """Shorten the track name to 50 characters long"""
         return textwrap.shorten(self.__track.title, width=50, break_long_words=False, placeholder="...")
-    
+
 
 class PlayerUtils:
     @property
     def __embed(self):
         return self.__ctx.embed if isinstance(self.__ctx, FurinaCtx) else self.__ctx.client.embed
-    
+
     @staticmethod
     async def __search_for_tracks(*, query: str, source: TrackSource = None) -> wavelink.Search:
         if "https://" not in query:
@@ -70,7 +81,7 @@ class PlayerUtils:
                 pass
         else:
             await self.__ctx.tick()
-        
+
 
         self.__searched = await self.__search_for_tracks(query=query, source=source)
         if not self.__searched:
@@ -78,7 +89,7 @@ class PlayerUtils:
             embed.title = "Cannot find any tracks with the given query"
             embed.color = Color.red()
             await self.__ctx.reply(embed=embed)
-        
+
         await self.__add_to_queue()
 
     async def __add_to_queue(self) -> None:
@@ -95,7 +106,7 @@ class PlayerUtils:
         # If the bot is in a StageChannel, request to speak
         if isinstance(self.__player.channel, discord.StageChannel):
             await self.__player.channel.guild.me.edit(suppress=False)
-        
+
         if isinstance(self.__searched, Playlist):
             embeds = await self.__add_playlist()
             view = PaginatedView(timeout=180, embeds=embeds)
@@ -128,7 +139,7 @@ class PlayerUtils:
 
         if embed.description != "":
             embeds.append(embed)
-                
+
         for embed in embeds:
             embed.title = f"Added {track_added}, skipped {track_skipped} out of {len(self.__searched.tracks)} tracks"
         if not self.__player.playing:
@@ -293,7 +304,7 @@ class Music(FurinaCog):
                     f.write(await jar.read())
                     logging.info(f"Successfully downloaded Lavalink.jar (v{version_info})")
         return version_info
-            
+
     def start_lavalink(self, version: str):
         def run_lavalink():
             try:
@@ -332,7 +343,7 @@ class Music(FurinaCog):
             await ctx.reply(embed=embed, ephemeral=True, delete_after=10)
             return False
         return True
-        
+
     async def refresh_node_connection(self) -> None:
         try:
             Pool.get_node()
@@ -656,7 +667,7 @@ class Music(FurinaCog):
     async def remove_slashcommand_autocomplete(self, interaction: Interaction, current: str) -> List[app_commands.Choice]:
         player: Player = self._get_player(interaction)
         return [app_commands.Choice(name=track.title, value=track.title) for track in player.queue if current.lower() in track.title.lower()][:25]
-    
+
     @commands.command(name='remove', aliases=['rm', 'delete'], description="Xóa một bài hát khỏi hàng chờ")
     async def remove_prefixcommand(self, ctx: FurinaCtx):
         player: Player = self._get_player(ctx)
@@ -665,7 +676,7 @@ class Music(FurinaCog):
         track_index = player.queue.count - 1
         deleted: Playable = player.queue[track_index]
         del player.queue[track_index]
-        await ctx.reply(embed=Embed(title=f"Đã xóa {deleted} khỏi hàng chờ."))  
+        await ctx.reply(embed=Embed(title=f"Đã xóa {deleted} khỏi hàng chờ."))
         await self._show_queue(ctx)
 
 

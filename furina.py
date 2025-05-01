@@ -1,3 +1,17 @@
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +35,7 @@ class FurinaCtx(commands.Context):
         super().__init__(*args, **kwargs)
         self.bot: FurinaBot
         self.message: discord.Message
-    
+
     async def tick(self) -> None:
         """Reacts checkmark to the command message"""
         try:
@@ -35,17 +49,17 @@ class FurinaCtx(commands.Context):
             await self.message.add_reaction(CROSS)
         except discord.HTTPException:
             pass
-    
+
     @property
     def cs(self) -> aiohttp.ClientSession:
         """Shortcut for `FurinaBot.cs`"""
         return self.bot.cs
-    
+
     @property
     def embed(self) -> discord.Embed:
         """Shortcut for FurinaBot.embed"""
         return self.bot.embed
-    
+
 
 class FurinaBot(commands.Bot):
     """
@@ -108,8 +122,8 @@ class FurinaBot(commands.Bot):
             embed.color = self.user.accent_color
             embed.timestamp = utils.utcnow()
             webhook = discord.Webhook.from_url(DEBUG_WEBHOOK, client=self)
-            await webhook.send(embed=embed, 
-                               avatar_url=self.user.display_avatar.url, 
+            await webhook.send(embed=embed,
+                               avatar_url=self.user.display_avatar.url,
                                username=self.user.display_name)
         except ValueError:
             logging.warning("Cannot get the Webhook url for on_ready events."
@@ -136,13 +150,13 @@ class FurinaBot(commands.Bot):
                 logging.error(f"An error occured when trying to load {extension_name}\n{e}")
         await self.load_extension("jishaku")
         logging.info("Loaded Jishaku extension")
-  
+
 
 class FurinaCog(commands.Cog):
     """Base class for all cogs"""
     def __init__(self, bot: FurinaBot) -> None:
         self.bot = bot
-        
+
     async def cog_load(self) -> None:
         logging.info(f"Cog {self.__cog_name__} has been loaded")
 

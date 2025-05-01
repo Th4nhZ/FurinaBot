@@ -1,3 +1,17 @@
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +37,7 @@ class Tags(FurinaCog):
         self.pool = await asqlite.create_pool(pathlib.Path() / 'db' / 'tags.db')
         await self.__create_tag_tables()
         return await super().cog_load()
-    
+
     async def __create_tag_tables(self) -> None:
         async with self.pool.acquire() as db:
             await db.execute(
@@ -48,15 +62,15 @@ class Tags(FurinaCog):
                     PRIMARY KEY (guild_id, name, alias)
                 )
                 """)
-    
+
     @commands.hybrid_group(name='tag', fallback='get', description="Get a tag from a query")
     async def tag_group(self, ctx: FurinaCtx, *, name: str):
         async with self.pool.acquire() as db:
             tag_content = await db.fetchone(
             """
                 SELECT t.content FROM tags t WHERE t.name = ? and t.guild_id = ?
-                UNION 
-                SELECT t.content FROM tags t 
+                UNION
+                SELECT t.content FROM tags t
                 JOIN tag_aliases ta ON t.guild_id = ta.guild_id and t.name = ta.name
                 WHERE t.guild_id = ? AND (t.name = ? OR ta.alias = ?)
             """, name, ctx.guild.id, ctx.guild.id, name, name)
@@ -69,9 +83,9 @@ class Tags(FurinaCog):
     @tag_group.command(name='create', description="Create a tag")
     async def tag_create(self, ctx: FurinaCtx, name: str = None, *, content: str = None):
         def check(m: Message):
-            return (m.author == ctx.author and 
-                    m.channel == ctx.channel and 
-                    m.content != "" and 
+            return (m.author == ctx.author and
+                    m.channel == ctx.channel and
+                    m.content != "" and
                     not m.content.startswith((self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX, self.bot.user.mention)))
         # tag create /BLANK/
         if not name:
@@ -112,14 +126,14 @@ class Tags(FurinaCog):
 
     def __name_check(self, ctx: FurinaCtx, name: str) -> bool:
         return not name.lower().startswith((self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX, self.bot.user.mention))
-    
+
     async def __check_tag_name(self, ctx: FurinaCtx, name: str) -> bool:
         async with self.pool.acquire() as db:
             fetched = await db.fetchone(
                 """
                 SELECT t.content FROM tags t WHERE t.name = ? and t.guild_id = ?
-                UNION 
-                SELECT t.content FROM tags t 
+                UNION
+                SELECT t.content FROM tags t
                 JOIN tag_aliases ta ON t.guild_id = ta.guild_id and t.name = ta.name
                 WHERE t.guild_id = ? AND (t.name = ? OR ta.alias = ?)
                 """, name, ctx.guild.id, ctx.guild.id, name, name)
@@ -159,7 +173,7 @@ class Tags(FurinaCog):
         if deleted is None:
             return f"No tags or aliases with query `{name}` for deletion"
         return f"Deleted tag `{name}`!"
-         
+
     async def __delete_tag(self, *, guild_id: int, owner: int, name: str) -> str:
         async with self.pool.acquire() as db:
             tag_owner: int = await db.fetchone(
@@ -170,7 +184,7 @@ class Tags(FurinaCog):
         if tag_owner[0] != owner:
             return "You do not own this tag!"
         return await self.__force_delete_tag(guild_id=guild_id, name=name)
-        
+
     @tag_group.command(name='alias', description="Create a tag alias")
     async def tag_alias(self, ctx: FurinaCtx, alias: str, *, name: str):
         check_alias_exist = await self.__check_tag_name(ctx, alias)
@@ -194,8 +208,8 @@ class Tags(FurinaCog):
             fetched = await db.fetchone(
             """
                 SELECT t.name, t.content, t.owner FROM tags t WHERE t.name = ? and t.guild_id = ?
-                UNION 
-                SELECT t.name, t.content, t.owner FROM tags t 
+                UNION
+                SELECT t.name, t.content, t.owner FROM tags t
                 JOIN tag_aliases ta ON t.guild_id = ta.guild_id and t.name = ta.name
                 WHERE t.guild_id = ? AND (t.name = ? OR ta.alias = ?)
             """, name, ctx.guild.id, ctx.guild.id, name, name)
@@ -210,7 +224,6 @@ class Tags(FurinaCog):
         embed.add_field(name="Owner", value=owner.mention)
         embed.set_thumbnail(url=owner.display_avatar.url)
         await ctx.reply(embed=embed)
-        
 
 
 async def setup(bot: FurinaBot):

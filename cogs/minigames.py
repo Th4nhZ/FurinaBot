@@ -1,3 +1,17 @@
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -70,7 +84,7 @@ class RPSButton(ui.Button):
             else:
                 view.embed.description = f"### {winner.mention} WON!"
             await interaction.edit_original_response(embed=view.embed, view=view)
-            
+
 
 class RPSView(View):
     def __init__(self):
@@ -243,7 +257,7 @@ class TicTacToe(View):
 
         self.embed.set_footer(text="Đã Timeout")
         await self.message.edit(embed=self.embed, view=self)
-        
+
 
 class WordleLetterStatus(Enum):
     UNUSED    = 0,
@@ -257,13 +271,13 @@ WORDLE_EMOJIS: Dict[str, Dict[WordleLetterStatus, str]]
 
 class WordleABC(View):
     ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    def __init__(self, 
-                 *, 
-                 bot: FurinaBot, 
-                 word: str, 
-                 owner: User, 
-                 solo: bool, 
-                 attempt: int, 
+    def __init__(self,
+                 *,
+                 bot: FurinaBot,
+                 word: str,
+                 owner: User,
+                 solo: bool,
+                 attempt: int,
                  pool: asqlite.Pool) -> None:
         super().__init__(timeout=600)
         self.bot = bot
@@ -272,7 +286,7 @@ class WordleABC(View):
         self.solo = solo
         self.attempt = attempt
         self.pool = pool
-        
+
         self._is_winning = False
         self._availability: List[WordleLetterStatus] = [WordleLetterStatus.UNUSED] * len(self.ALPHABET)
 
@@ -283,7 +297,7 @@ class WordleABC(View):
     def is_over(self) -> bool:
         """Whether the game is over or not"""
         return self.attempt == 0 or self._is_winning
-    
+
     async def on_timeout(self) -> None:
         for child in self.children:
             child.disabled = True
@@ -339,7 +353,7 @@ class WordleABC(View):
                 letter_index = self.ALPHABET.index(char)
                 self._availability[letter_index] = WordleLetterStatus.CORRECT
         return result, word_counter
-    
+
     def check_yellow_and_black_square(self, guess: str, *, result: List[str], word_counter: Counter) -> List[str]:
         """Check the wrong position and incorrect letters in the guess"""
         for i, char in enumerate(guess):
@@ -373,12 +387,12 @@ class WordleABC(View):
     def check_guess(self, guess: str) -> str:
         """
         Check the user's input and update the availabilities afterward
-        
+
         Parameters
         -----------
         guess: `str`
             - User's input
-        
+
         Returns
         -----------
         `str`
@@ -402,13 +416,13 @@ class Wordle(WordleABC):
         self.helped_guess: WordleHelpGuessSelect = WordleHelpGuessSelect()
         self.selected_guess: Optional[str] = None
         self.remaining_attempt_button.label = f"Attempts: {self.attempt}"
-    
+
     def check_guess(self, guess: str) -> str:
         result, word_counter = self.check_green_square(guess)
         # using all() to check if the result is all green squares
         if all("GREEN" in letter for letter in result):
             self._is_winning = True
-        else: 
+        else:
             result = self.check_yellow_and_black_square(guess, result=result, word_counter=word_counter)
         self.update_availabilities()
         return "".join(result)
@@ -449,7 +463,7 @@ class Wordle(WordleABC):
     @ui.button(label="Guess", emoji="\U0001f4dd")
     async def guess_button(self, interaction: Interaction, button: ui.Button):
         guess, guesser = await self.get_guessandguesser(interaction)
-        
+
         try:
             for option in self.helped_guess.options:
                 if option.label.lower() == guess.lower():
@@ -465,8 +479,8 @@ class Wordle(WordleABC):
             if len(self.helped_guess.options) < 25:
                 self.add_item(self.helped_guess) if self.helped_guess not in self.children else None
                 self.helped_guess.append_option(
-                    discord.SelectOption(label=guess.capitalize(), 
-                                         value=f"{guess.upper()} {interaction.user.mention}", 
+                    discord.SelectOption(label=guess.capitalize(),
+                                         value=f"{guess.upper()} {interaction.user.mention}",
                                          description=f"by {interaction.user.display_name}")
                 )
                 await interaction.edit_original_response(view=self)
@@ -478,7 +492,7 @@ class Wordle(WordleABC):
         result = self.check_guess(guess)
         self.embed.description += f"{result} by {guesser}\n"
         self.remaining_attempt_button.label = f"Attempts: {self.attempt}"
-            
+
         # if is_winning is True or attempt is 0
         if self.is_over:
             button.disabled = True
@@ -512,8 +526,8 @@ class Letterle(WordleABC):
         for letter in self.ALPHABET:
             if letter != init_guess:
                 self.select_guess.add_option(
-                    label=letter, 
-                    value=letter, 
+                    label=letter,
+                    value=letter,
                     emoji=self.get_letter_emoji(letter, WordleLetterStatus.UNUSED)
                 )
 
@@ -521,7 +535,7 @@ class Letterle(WordleABC):
         result, _ = self.check_green_square(guess)
         if "GREEN" in result[0]:
             self._is_winning = True
-        else: 
+        else:
             result = self.mark_black_square(guess)
         self.update_availabilities()
         return "".join(result)
@@ -531,7 +545,7 @@ class Letterle(WordleABC):
         self._availability[letter_index] = WordleLetterStatus.INCORRECT
         return self.get_letter_emoji(guess, WordleLetterStatus.INCORRECT)
 
-    
+
     def update_keyboard_field(self, availabilities) -> None:
         self.embed.clear_fields()
         self.embed.add_field(name="Keyboard", value=availabilities)
@@ -761,25 +775,25 @@ class Minigames(commands.GroupCog, group_name="minigame"):
             rows = await conn.fetchall(
                 """
                 WITH ranked_players AS (
-                    SELECT 
+                    SELECT
                         game_name,
                         user_id,
                         COUNT(*) FILTER (WHERE win = TRUE) AS wins,
                         ROW_NUMBER() OVER (PARTITION BY game_name ORDER BY COUNT(*) FILTER (WHERE win = TRUE) DESC) AS rank
-                    FROM 
+                    FROM
                         singleplayer_games
-                    GROUP BY 
+                    GROUP BY
                         game_name, user_id
                 )
-                SELECT 
+                SELECT
                     game_name,
                     user_id,
                     wins
-                FROM 
+                FROM
                     ranked_players
-                WHERE 
+                WHERE
                     rank <= 3
-                ORDER BY 
+                ORDER BY
                     game_name, rank;
                 """)
         sorted_by_minigame: Dict[str, List[Dict[str, int]]] = {}
@@ -805,7 +819,7 @@ class Minigames(commands.GroupCog, group_name="minigame"):
         view = PaginatedView(timeout=180, embeds=embeds)
         await interaction.followup.send(embed=view.embeds[0], view=view)
         view.message = await interaction.original_response()
-            
+
     @stats.command(name='user', description="View a specific user's minigame stats")
     @app_commands.allowed_installs(guilds=True, users=True)
     async def minigame_stats_user(self, interaction: Interaction, user: User = None):
@@ -822,26 +836,26 @@ class Minigames(commands.GroupCog, group_name="minigame"):
         async with self.pool.acquire() as conn:
             rows = await conn.fetchall(
                 """
-                SELECT 
+                SELECT
                     game_name,
                     COUNT(*) FILTER (WHERE win = TRUE) AS wins,
                     COUNT(*) FILTER (WHERE win = FALSE) AS losses,
                     COUNT(*) AS total_games
-                FROM 
+                FROM
                     singleplayer_games
-                WHERE 
+                WHERE
                     user_id = $1
-                GROUP BY 
+                GROUP BY
                     game_name
-                ORDER BY 
+                ORDER BY
                     game_name;
                 """, user.id)
         embed = self.bot.embed
         embed.title = "Minigame Stats"
         embed.description = f"User: {user.mention}"
         for row in rows:
-            embed.add_field(name=row['game_name'].capitalize(), 
-                            value=f"Total games played: `{row['total_games']:04d}`\nWins: `{row['wins']:04d}`\nLosses: `{row['losses']:04d}`", 
+            embed.add_field(name=row['game_name'].capitalize(),
+                            value=f"Total games played: `{row['total_games']:04d}`\nWins: `{row['wins']:04d}`\nLosses: `{row['losses']:04d}`",
                             inline=False)
         await interaction.followup.send(embed=embed)
 
@@ -862,44 +876,44 @@ class Minigames(commands.GroupCog, group_name="minigame"):
         async with self.pool.acquire() as conn:
             rows_top = await conn.fetchall(
                 """
-                SELECT 
+                SELECT
                     user_id,
                     COUNT(*) FILTER (WHERE win = TRUE) AS wins,
                     COUNT(*) FILTER (WHERE win = FALSE) AS losses,
                     COUNT(*) AS total_games,
                     ROUND((COUNT(*) FILTER (WHERE win = TRUE) * 100.0 / NULLIF(COUNT(*), 0)), 2) AS win_percentage
-                FROM 
+                FROM
                     singleplayer_games
-                WHERE 
+                WHERE
                     game_name = $1
-                GROUP BY 
+                GROUP BY
                     user_id
-                HAVING 
+                HAVING
                     COUNT(*) >= 5
-                ORDER BY 
+                ORDER BY
                     win_percentage DESC,
                     total_games DESC
                 LIMIT 3
                 """, minigame)
             rows_bottom = await conn.fetchall(
                 """
-                SELECT 
+                SELECT
                     user_id,
                     COUNT(*) FILTER (WHERE win = TRUE) AS wins,
                     COUNT(*) FILTER (WHERE win = FALSE) AS losses,
                     COUNT(*) AS total_games,
                     ROUND((COUNT(*) FILTER (WHERE win = TRUE) * 100.0 / NULLIF(COUNT(*), 0)), 2) AS win_percentage
-                FROM 
+                FROM
                     singleplayer_games
-                WHERE 
+                WHERE
                     game_name = $1
-                GROUP BY 
+                GROUP BY
                     user_id
-                HAVING 
+                HAVING
                     COUNT(*) >= 5
-                ORDER BY 
-                    win_percentage ASC,  
-                    total_games DESC 
+                ORDER BY
+                    win_percentage ASC,
+                    total_games DESC
                 LIMIT 3
                 """, minigame)
         embed = self.bot.embed
