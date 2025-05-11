@@ -14,12 +14,8 @@ limitations under the License.
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import subprocess
 import textwrap
-import threading
-from pathlib import Path
 from typing import TYPE_CHECKING, List, Union, cast
 
 import discord, wavelink
@@ -30,7 +26,7 @@ from wavelink import (Player, Playable, Playlist, TrackSource, TrackStartEventPa
 from youtube_search import YoutubeSearch
 
 from furina import FurinaCog, FurinaCtx
-from cogs.utility.views import PaginatedView
+from core.views import PaginatedView
 from settings import *
 
 if TYPE_CHECKING:
@@ -271,61 +267,11 @@ class Music(FurinaCog):
 
     async def cog_load(self) -> None:
         await super().cog_load()
-        if not self.bot.skip_lavalink:
-            version = await self.get_lavalink_jar()
-            self.start_lavalink(version)
-            await asyncio.sleep(10)
         await self.refresh_node_connection()
-
-    async def get_lavalink_jar(self) -> str:
-        async with self.bot.cs.get("https://api.github.com/repos/lavalink-devs/Lavalink/releases/latest") as response:
-            release_info = await response.json()
-        try:
-            jar_info = next(
-                (asset for asset in release_info["assets"] if asset["name"] == "Lavalink.jar"),
-                None
-            )
-            version_info = release_info["tag_name"]
-        except KeyError:
-            return
-        ll_path = Path(f"Lavalink-{version_info}.jar")
-        if ll_path.exists():
-            logging.info(f"Lavalink.jar is up-to-date (v{version_info}). Skipping download...")
-        else:
-            try:
-                file = [file for file in os.listdir() if (file.startswith("Lavalink-") and file.endswith(".jar"))]
-                os.remove(file[0])
-            except IndexError:
-                pass
-            logging.info("Deleted outdated Lavalink.jar file. Downloading new version...")
-            jar_url = jar_info["browser_download_url"]
-            async with self.bot.cs.get(jar_url) as jar:
-                with open(f"./Lavalink-{version_info}.jar", "wb") as f:
-                    f.write(await jar.read())
-                    logging.info(f"Successfully downloaded Lavalink.jar (v{version_info})")
-        return version_info
-
-    def start_lavalink(self, version: str):
-        def run_lavalink():
-            try:
-                subprocess.run(["java", "-jar", f"Lavalink-{version}.jar"], cwd="./")
-            except FileNotFoundError as e:
-                logging.error(f"Java is not installed or not in PATH: {e}")
-                raise e
-            except subprocess.CalledProcessError as e:
-                logging.error(f"Error starting Lavalink: {e}")
-                raise e
-            except Exception as e:
-                logging.error(f"An error occured when starting Lavalink: {e}")
-        try:
-            thread = threading.Thread(target=run_lavalink, daemon=True)
-            thread.start()
-        except Exception as e:
-            pass
 
     async def cog_check(self, ctx: FurinaCtx) -> bool:
         if ctx.guild.id != GUILD_SPECIFIC:
-                return False
+            return False
         embed = ctx.embed
         embed.color = Color.red()
         embed.title = "Error"

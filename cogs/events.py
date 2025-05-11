@@ -17,15 +17,15 @@ from __future__ import annotations
 import traceback
 from typing import TYPE_CHECKING
 
-from discord import ui, Activity, ActivityType, DMChannel, Message, Member
+from discord import Activity, ActivityType, DMChannel, Member, Message, ui
 from discord.ext import commands
-from wavelink import Player, Playable, TrackStartEventPayload, TrackEndEventPayload
 
-from furina import FurinaCtx, FurinaCog
-from settings import MUSIC_CHANNEL, ACTIVITY_NAME, CROSS
-
+from furina import FurinaCog, FurinaCtx
+from settings import ACTIVITY_NAME, CROSS, MUSIC_CHANNEL
 
 if TYPE_CHECKING:
+    from wavelink import Playable, Player, TrackEndEventPayload, TrackStartEventPayload
+
     from furina import FurinaBot
 
 
@@ -41,7 +41,11 @@ class BotEvents(FurinaCog):
         state: `str`
             Track name
         """
-        await self.bot.change_presence(activity=Activity(type=ActivityType.playing, name=ACTIVITY_NAME, state=f"Playing: {state}"))
+        await self.bot.change_presence(
+            activity=Activity(type=ActivityType.playing, 
+                              name=ACTIVITY_NAME, 
+                              state=f"Playing: {state}")
+        )
 
     @commands.Cog.listener()
     async def on_message(self, message: Message) -> None:
@@ -57,7 +61,7 @@ class BotEvents(FurinaCog):
         err: str = CROSS
         if isinstance(error, commands.CommandNotFound):
             return
-        elif isinstance(error, commands.MissingRequiredArgument):
+        if isinstance(error, commands.MissingRequiredArgument):
             err += f" **Missing required argument:** `{error.param.name}`"
         else:
             err += f" **{error}**"

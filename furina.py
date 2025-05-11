@@ -15,23 +15,25 @@ limitations under the License.
 from __future__ import annotations
 
 import logging
-import traceback
 import typing
 from platform import python_version
 
-import aiohttp
 import discord
 import wavelink
 from discord import app_commands, utils
 from discord.ext import commands
 from discord.ext.commands import errors, when_mentioned_or
 
-from settings import *
+from cogs import EXTENSIONS
+from settings import ACTIVITY_NAME, CHECKMARK, CROSS, DEBUG_WEBHOOK, DEFAULT_PREFIX, OWNER_ID, TOKEN
+
+if typing.TYPE_CHECKING:
+    import aiohttp
 
 
 class FurinaCtx(commands.Context):
     """Custom Context class with some shortcuts"""
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         super().__init__(*args, **kwargs)
         self.bot: FurinaBot
         self.message: discord.Message
@@ -66,33 +68,33 @@ class FurinaBot(commands.Bot):
     Customized `commands.Bot` class
 
     Attributes
-    -----------
-    - client_session: `aiohttp.ClientSession`
+    ----------
+    client_session: `aiohttp.ClientSession`
         - The client session for the bot for easier http request
 
-    Example
-    -----------
+    Usage
+    ----------
     .. code-block:: python
         async with aiohttp.ClientSession() as client_session:
             async with FurinaBot(client_session=client_session) as bot:
                 await bot.start(TOKEN)
     """
     def __init__(self, *, client_session: aiohttp.ClientSession, skip_lavalink: bool) -> None:
-        super().__init__(
-            command_prefix     = self.get_pre,
-            case_insensitive   = True,
-            strip_after_prefix = True,
-            intents            = discord.Intents.all(),
-            help_command       = None,
-            allowed_contexts   = app_commands.AppCommandContext(dm_channel=False, guild=True),
-            activity           = discord.Activity(type=discord.ActivityType.playing,
-                                          name=ACTIVITY_NAME,
-                                          state="Playing: N̸o̸t̸h̸i̸n̸g̸")
-        )
+        super().__init__(command_prefix=self.get_pre,
+                         case_insensitive=True,
+                         strip_after_prefix=True,
+                         intents=discord.Intents.all(),
+                         help_command=None,
+                         allowed_contexts=app_commands.AppCommandContext(
+                             dm_channel=False,
+                             guild=True
+                         ),
+                         activity=discord.Activity(type=discord.ActivityType.playing,
+                                                   name=ACTIVITY_NAME))
         self.owner_id = OWNER_ID
         self.skip_lavalink = skip_lavalink
         self.cs = client_session
-        self.prefixes: typing.Dict[int, str] = {}
+        self.prefixes: dict[int, str] = {}
 
     @property
     def embed(self) -> discord.Embed:
@@ -103,10 +105,13 @@ class FurinaBot(commands.Bot):
         uptime_td = utils.utcnow() - self._startup
         return f"`{uptime_td.days}d {uptime_td.seconds // 3600}h {(uptime_td.seconds // 60) % 60}m`"
 
-    async def get_context(self, message: discord.Message, *, cls = FurinaCtx) -> FurinaCtx:
+    async def get_context(self,
+                          message: discord.Message,
+                          *,
+                          cls: FurinaCtx = FurinaCtx) -> FurinaCtx:
         return await super().get_context(message, cls=cls)
 
-    def get_pre(self, _, message: discord.Message) -> typing.List[str]:
+    def get_pre(self, _: FurinaBot, message: discord.Message) -> list[str]:
         """Custom `get_prefix` method"""
         if not message.guild:
             return when_mentioned_or(DEFAULT_PREFIX)(self, message)
@@ -114,7 +119,7 @@ class FurinaBot(commands.Bot):
         return when_mentioned_or(prefix)(self, message)
 
     async def on_ready(self) -> None:
-        logging.info(f"Logged in as {self.user.name}")
+        logging.info("Logged in as %s", self.user.name)
         self._startup = utils.utcnow()
 
         try:
@@ -126,30 +131,36 @@ class FurinaBot(commands.Bot):
                                avatar_url=self.user.display_avatar.url,
                                username=self.user.display_name)
         except ValueError:
-            logging.warning("Cannot get the Webhook url for on_ready events."
-                            "If you don't want to get a webhook message when the bot is ready, please ignore this")
+            logging.warning(
+                "Cannot get the Webhook url for on_ready events."
+                "If you don't want to get a webhook message when the bot is ready,"
+                "please ignore this"
+            )
 
     async def setup_hook(self) -> None:
-        logging.info(f"discord.py v{discord.__version__}")
-        logging.info(f"Wavelink v{wavelink.__version__}")
-        logging.info(f"Running Python {python_version()}")
+        logging.info("discord.py v%s", discord.__version__)
+        logging.info("Wavelink v%s", wavelink.__version__)
+        logging.info("Running Python %s", python_version())
         logging.info("Fetching bot emojis")
-        self.app_emojis: typing.List[discord.Emoji] = await self.fetch_application_emojis()
+        self.app_emojis: list[discord.Emoji] = await self.fetch_application_emojis()
 
         # loads the extensions
-        from cogs import EXTENSIONS
         logging.info("Loading extensions")
         for extension in EXTENSIONS:
             extension_name = extension[5:]
             try:
                 await self.load_extension(f"{extension}")
             except errors.NoEntryPointError:
-                logging.error(f"Extension {extension_name} has no setup function so it cannot be loaded")
-            except Exception as e:
-                traceback.print_exc()
-                logging.error(f"An error occured when trying to load {extension_name}\n{e}")
+                logging.exception(
+                    "Extension %s has no setup function so it cannot be loaded", extension_name
+                )
+            except Exception:
+                logging.exception("An error occured when trying to load %s", extension_name)
         await self.load_extension("jishaku")
         logging.info("Loaded Jishaku extension")
+
+    async def start(self) -> None:
+        return await super().start(TOKEN, reconnect=True)
 
 
 class FurinaCog(commands.Cog):
@@ -158,13 +169,7 @@ class FurinaCog(commands.Cog):
         self.bot = bot
 
     async def cog_load(self) -> None:
-        logging.info(f"Cog {self.__cog_name__} has been loaded")
-
-    async def cog_unload(self):
-        if hasattr(self, 'pool'):
-            # by design we use one pool to separate database for each cog
-            # so we will gracefully close the pool when unload the cog
-            await self.pool.close()
+        logging.info("Cog %s has been loaded", self.__cog_name__)
 
     @property
     def embed(self) -> discord.Embed:

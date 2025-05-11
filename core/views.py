@@ -1,0 +1,149 @@
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from discord import Button, ButtonStyle, Embed, Interaction, Message, User, ui
+from discord.ext.commands import CommandError, CooldownMapping
+
+
+class UIElementOnCoolDownError(CommandError):
+    def __init__(self, retry_after: float) -> None:
+        self.retry_after = retry_after
+
+
+class View(ui.View):
+    """A View that auto disable children when timed out"""
+    def __init__(self, *, timeout: float = 180) -> None:
+        super().__init__(timeout=timeout)
+        self.message: Message
+        self.cd = CooldownMapping.from_cooldown(rate=1, per=2, type=self.key)
+
+    @staticmethod
+    def key(interaction: Interaction) -> User:
+        return interaction.user
+
+    async def interaction_check(self, interaction: Interaction) -> Literal[True]:
+        retry_after = self.cd.update_rate_limit(interaction)
+        if retry_after:
+            raise UIElementOnCoolDownError(retry_after=retry_after)
+        return True
+
+    async def on_error(self, interaction: Interaction, error: Exception, item: ui.Item) -> None:
+        if isinstance(error, UIElementOnCoolDownError):
+            seconds = int(error.retry_after)
+            unit = 'second' if seconds == 1 else 'seconds'
+            await interaction.response.send_message(
+                f"You are clicking too fast, try again in {seconds} {unit}!", ephemeral=True
+            )
+        else:
+            await super().on_error(interaction, error, item)
+
+    async def on_timeout(self) -> None:
+        if not hasattr(self, 'message'):
+            return
+        for child in self.children:
+            child.disabled = True
+        await self.message.edit(view=self)
+
+
+class PaginatedView(View):
+    def __init__(self, *, timeout: float, embeds: list[Embed] | Embed) -> None:
+        super().__init__(timeout=timeout)
+        self.embeds = embeds if isinstance(embeds, list) else [embeds]
+        self.page: int = 0
+        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
+        if len(self.embeds) == 1:
+            self.clear_items()
+
+    @ui.button(label="<<", disabled=True)
+    async def first_button(self, interaction: Interaction, button: Button) -> None:
+        self.page = 0
+        button.disabled = True
+        self.left_button.disabled = True
+        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"  # noqa: E501
+        self.right_button.disabled = False
+        self.last_button.disabled = False
+        await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
+
+    @ui.button(label="<", disabled=True)
+    async def left_button(self, interaction: Interaction, button: Button) -> None:
+        self.page -= 1
+        self.first_button.disabled = self.page == 0
+        button.disabled = self.page == 0
+        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
+        self.right_button.disabled = False
+        self.last_button.disabled = False
+        await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
+
+    @ui.button(style=ButtonStyle.blurple, disabled=True)
+    async def page_button(self, _: Interaction, __: Button) -> None:
+        pass
+
+    @ui.button(label=">")
+    async def right_button(self, interaction: Interaction, button: Button) -> None:
+        self.page += 1 if self.page <= len(self.embeds) - 1 else self.page
+        self.first_button.disabled = False
+        self.left_button.disabled = False
+        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
+        button.disabled = self.page == len(self.embeds) - 1
+        self.last_button.disabled = self.page == len(self.embeds) - 1
+        await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
+
+    @ui.button(label=">>")
+    async def last_button(self, interaction: Interaction, button: Button) -> None:
+        self.page = len(self.embeds) - 1
+        self.first_button.disabled = False
+        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
+        self.left_button.disabled = False
+        self.right_button.disabled = True
+        button.disabled = True
+        await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
+
+
+class LayoutView(ui.LayoutView):
+    def __init__(self, *, timeout: float = 180) -> None:
+        super().__init__(timeout=timeout)
+        self.cd = CooldownMapping.from_cooldown(rate=1, per=2, type=self.key)
+
+    @staticmethod
+    def key(interaction: Interaction) -> User:
+        return interaction.user
+
+    async def interaction_check(self, interaction: Interaction) -> Literal[True]:
+        retry_after = self.cd.update_rate_limit(interaction)
+        if retry_after:
+            raise UIElementOnCoolDownError(retry_after=retry_after)
+        return True
+
+    async def on_error(self, interaction: Interaction, error: Exception, item: ui.Item) -> None:
+        if isinstance(error, UIElementOnCoolDownError):
+            seconds = int(error.retry_after)
+            unit = 'second' if seconds == 1 else 'seconds'
+            await interaction.response.send_message(
+                f"You are clicking too fast, try again in {seconds} {unit}!", ephemeral=True
+            )
+        else:
+            await super().on_error(interaction, error, item)
+
+    async def on_timeout(self) -> None:
+        if not hasattr(self, 'message'):
+            return
+        for child in self.walk_children():
+            child.disabled = True
+        await self.message.edit(view=self)
+
+

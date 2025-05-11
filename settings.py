@@ -13,13 +13,14 @@ limitations under the License.
 """
 
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Basic
 DEFAULT_PREFIX = "!"
-ACTIVITY_NAME = "Music » /play"
+ACTIVITY_NAME = "Wordle ▪ /minigame wordle"
 TOKEN = os.getenv("BOT_TOKEN")
 DEBUG_WEBHOOK = os.getenv("DEBUG_WEBHOOK")
 OWNER_ID = 596886610214125598
@@ -40,7 +41,7 @@ CROSS = "<a:crossout:1358833476979261702>"
 # Music Cog
 MUSIC_CHANNEL = 1089851760425848923
 MUSIC_WEBHOOK = os.getenv("MUSIC_WEBHOOK")
-SKIP_LL = os.getenv("SKIP_LL") == "true"
+SKIP_LL = True
 LAVA_URI = "http://localhost:1710"
 LAVA_PW = "thanhz"
 BACKUP_LL = os.getenv("BACKUP_LL")

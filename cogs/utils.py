@@ -14,51 +14,51 @@ limitations under the License.
 
 from __future__ import annotations
 
+import ast
 import datetime
 import inspect
 import io
 import pathlib
 import platform
-import psutil
 import re
 from enum import Enum
 from time import perf_counter
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING
 
 import aiohttp
 import asqlite
 import dateparser
 import discord
 import docstring_parser
-from discord import app_commands, ui, Embed, Member
+import psutil
+from discord import Embed, Member, app_commands, ui
 from discord.ext import commands
 from discord.ui import Select
 from wavelink import NodeStatus, Pool
 
-from furina import FurinaCog, FurinaCtx
-from settings import *
-from cogs.utility.views import PaginatedView, LayoutView
-
+from core.views import LayoutView, PaginatedView
+from furina import FurinaBot, FurinaCog, FurinaCtx
+from settings import CHECKMARK, CROSS, DEFAULT_PREFIX, WORDNIK_API
 
 if TYPE_CHECKING:
     from furina import FurinaBot
 
+
 class HelpActionRow(ui.ActionRow):
     """Help Action Row"""
-    def __init__(self, *, id = None, bot: FurinaBot):
-        super().__init__(id=id)
-        self.add_item(HelpSelect(bot))
+    def __init__(self, *, bot: FurinaBot) -> None:
+        super().__init__(HelpSelect(bot))
 
 
 class HelpSelect(Select):
     """Help Selection Menu"""
-    def __init__(self, bot: FurinaBot):
+    def __init__(self, bot: FurinaBot) -> None:
         super().__init__(
             placeholder="Select a category for command list",
             options=[
-                discord.SelectOption(
-                    label=cog_name, description=cog.__doc__
-                ) for cog_name, cog in bot.cogs.items() if cog.__cog_commands__ and cog_name not in ['Hidden', 'Jishaku']
+                discord.SelectOption(label=cog_name, description=cog.__doc__)
+                for cog_name, cog in bot.cogs.items()
+                if cog.__cog_commands__ and cog_name not in ['Hidden', 'Jishaku']
             ]
         )
         self.bot = bot
@@ -76,13 +76,13 @@ class HelpSelect(Select):
 
 
 class MemberStatus(Enum):
-    online  = ":green_circle: `Online`"
+    online = ":green_circle: `Online`"
     offline = ":black_circle: `Offline`"
-    idle    = ":yellow_circle: `Idling`"
-    dnd     = ":red_circle: `Do Not Disturb`"
+    idle = ":yellow_circle: `Idling`"
+    dnd = ":red_circle: `Do Not Disturb`"
 
 
-NODE_STATUSES: Dict[NodeStatus, str] = {
+NODE_STATUSES: dict[NodeStatus, str] = {
     NodeStatus.CONNECTED: ":white_check_mark:",
     NodeStatus.CONNECTING: ":arrows_clockwise:",
     NodeStatus.DISCONNECTED: ":negative_squared_cross_mark:"
@@ -91,12 +91,13 @@ NODE_STATUSES: Dict[NodeStatus, str] = {
 
 class Utils(FurinaCog):
     """Utility Commands"""
-    async def cog_load(self):
+    async def cog_load(self) -> None:
         self.pool = await asqlite.create_pool(pathlib.Path() / 'db' / 'utils.db')
         await self.__update_custom_prefixes()
         return await super().cog_load()
 
-    async def __update_custom_prefixes(self):
+    async def __update_custom_prefixes(self) -> None:
+        """Fetch and update custom prefixes"""
         async with self.pool.acquire() as db:
             await db.execute(
                 """
@@ -114,40 +115,43 @@ class Utils(FurinaCog):
         container = ui.Container(
             ui.TextDisplay(f"## {cog.__cog_name__} Commands")
         )
-        prefix_commands = ""
+        prefix: str = ""
         for command in cog.walk_commands():
             if command.hidden:
                 continue
             doc = docstring_parser.parse(command.callback.__doc__)
-            prefix_commands += f"- **{prefix}{command.qualified_name}:** `{doc.short_description}`\n"
+            prefix += f"- **{prefix}{command.qualified_name}:** `{doc.short_description}`\n"
 
-        if prefix_commands:
-            container.add_item(ui.TextDisplay("### Prefix commands\n" + prefix_commands))
+        if prefix:
+            container.add_item(ui.TextDisplay("### Prefix commands\n" + prefix))
 
-        slash_commands = ""
+        slash: str = ""
         for command in cog.walk_app_commands():
             doc = docstring_parser.parse(command.callback.__doc__)
-            slash_commands += f"- **{command.qualified_name}:** `{doc.short_description}`\n"
+            slash += f"- **{command.qualified_name}:** `{doc.short_description}`\n"
 
-        if slash_commands:
+        if slash:
             container.add_item(ui.Separator())
-            container.add_item(ui.TextDisplay(slash_commands))
+            container.add_item(ui.TextDisplay(slash))
 
-        if not prefix_commands and not slash_commands:
+        if not prefix and not slash:
             container.add_item(ui.TextDisplay("This cog has no commands to show"))
         return container
 
     @FurinaCog.listener("on_message")
     async def on_mention(self, message: discord.Message) -> None:
-        if message.author == self.bot.user:
+        """Sends a container with some info and help select menu when mentioned"""
+        bot = self.bot
+        if message.author.bot:
             return
 
-        if message.content == self.bot.user.mention:
+        if message.content == bot.user.mention:
+            prefix = bot.prefixes.get(message.guild.id) or DEFAULT_PREFIX
             header = ui.Section(
                 ui.TextDisplay("## Miss me that much?"),
-                ui.TextDisplay(f"**My prefix is** `{self.bot.prefixes.get(message.guild.id) or DEFAULT_PREFIX}`"),
-                ui.TextDisplay(f"**You can also mention me** {self.bot.user.mention}` <command> `"),
-                accessory=ui.Thumbnail(self.bot.user.display_avatar.url)
+                ui.TextDisplay(f"**My prefix is** `{prefix}`"),
+                ui.TextDisplay(f"**You can also mention me** {bot.user.mention}` <command> `"),
+                accessory=ui.Thumbnail(bot.user.display_avatar.url)
             )
             source_section = ui.Section(
                 ui.TextDisplay("### I am also open source"),
@@ -163,20 +167,20 @@ class Utils(FurinaCog):
                 source_section,
                 ui.Separator()
             )
-            bot_latency: str = f"{round(self.bot.latency * 1000)}ms"
+            bot_latency: str = f"{round(bot.latency * 1000)}ms"
             time = perf_counter()
             async with self.pool.acquire() as db:
                 await db.fetchone("""SELECT * FROM custom_prefixes LIMIT 1""")
             db_latency = f"{round((perf_counter() - time) * 1000)}ms"
             container.add_item(
                 ui.TextDisplay("### More info\n"
-                               f"- **Uptime:** `{self.bot.uptime}`\n"
+                               f"- **Uptime:** `{bot.uptime}`\n"
                                f"- **Bot Latency:** `{bot_latency}`\n"
                                f"- **Database Latency:** `{db_latency}`"
                 )
             )
             container.add_item(ui.Separator())
-            container.add_item(HelpActionRow(bot=self.bot))
+            container.add_item(HelpActionRow(bot=bot))
             view = LayoutView().add_item(container)
             view.message = await message.channel.send(view=view, reference=message)
 
@@ -223,12 +227,12 @@ class Utils(FurinaCog):
         Can **not** be used in DM.
         New prefix cannot be more than 3 characters long.
         Quotation marks *will be cleared*! So `"a."` ~ `a.`
-        Set the prefix to either: `clear`, `reset`, `default`, will reset to the default prefix 「`!`」
+        Set the prefix to either: `clear`, `reset`, `default`, will reset to the default prefix `!`
 
         Parameters
         ----------
-        prefix: str
-            - The new prefix
+        prefix : str
+            The new prefix
         """
         prefix: str = prefix.strip().replace('"', "").replace("'", "")
         container = ui.Container(ui.TextDisplay("-# Coded by ThanhZ", row=9))
@@ -248,29 +252,30 @@ class Utils(FurinaCog):
                     INSERT OR REPLACE INTO custom_prefixes (guild_id, prefix) VALUES (?, ?)
                     """, ctx.guild.id, prefix)
         await self.__update_custom_prefixes()
+        prefix = self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX
         container.add_item(
             ui.TextDisplay(
-                f"{CHECKMARK} **Prefix set to** `{self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX}`"
+                f"{CHECKMARK} **Prefix set to** `{prefix}`"
             )
         )
         await ctx.reply(view=LayoutView().add_item(container))
 
     @commands.command(name='source', aliases=['src'])
-    async def source_command(self, ctx: FurinaCtx, *, command: Optional[str] = "") -> None:
+    async def source_command(self, ctx: FurinaCtx, *, command: str | None = "") -> None:
         """Get the bot source code
 
         Get the source code of the bot or a specific command.
-        Will return a github link to the bot if no command is provided.
-        Otherwise will try to return the command source code.
+        Return a github link to the bot if no command is provided.
+        Otherwise return the command source code.
 
         Parameters
         ----------
-        command: Optional[str] = ""
-            - The command of which you need the source code
+        command : str, optional
+            The command of which you need the source code
         """
-        cmd: Optional[commands.Command] = self.bot.get_command(command.lower())
-        file: Optional[discord.File] = None
-        github: str = r"https://github.com/th4nhz/FurinaBot"
+        cmd: commands.Command | None = self.bot.get_command(command.lower())
+        file: discord.File | None = None
+        github: str = r"https://github.com/Th4nhZ/FurinaBot"
         if not command:
             res = github
         elif not cmd:
@@ -279,17 +284,21 @@ class Utils(FurinaCog):
             source: str = inspect.getsource(cmd.callback)
             lines, start_line = inspect.getsourcelines(cmd.callback)
             end_line = start_line + len(lines) - 1
-            path = pathlib.Path(inspect.getfile(cmd.callback)).resolve().relative_to(pathlib.Path.cwd())
+            src_file = inspect.getfile(cmd.callback)
+            path = pathlib.Path(src_file).resolve().relative_to(pathlib.Path.cwd())
             if len(source) >= 1000:
                 res = "Source code is too long so I will send a file instead\n"
-                file = discord.File(io.BytesIO(source.encode('utf-8')), filename=f"{cmd.qualified_name}.py")
+                file = discord.File(
+                    io.BytesIO(source.encode('utf-8')), filename=f"{cmd.qualified_name}.py"
+                )
             else:
                 res = f"```py\n{source}\n```"
-            res += f"\nHere is the corresponding github link: <{github}/tree/master/{path}#L{start_line}-L{end_line}>"
+            github = f"<{github}/tree/master/{path}#L{start_line}-L{end_line}>"
+            res += f"\nHere is the corresponding github link: {github}"
         await ctx.reply(res, file=file)
 
     @commands.command(name='help')
-    async def help_command(self, ctx: FurinaCtx, *, query: Optional[str] = None) -> None:
+    async def help_command(self, ctx: FurinaCtx, *, query: str | None = None) -> None:
         """The help command
 
         Shows the command list of a category if it is provided.
@@ -298,8 +307,8 @@ class Utils(FurinaCog):
 
         Parameters
         ----------
-        query : Optional[str] = None
-            - Category/Command name you need help with
+        query : str, optional
+            Category/Command name you need help with
         """
         # !help
         if query is None:
@@ -323,7 +332,7 @@ class Utils(FurinaCog):
 
         # !help <CogName>
         cog: FurinaCog = None
-        for cog_ in self.bot.cogs.keys():
+        for cog_ in self.bot.cogs:
             if cog_.lower() == query.lower():
                 cog = self.bot.get_cog(cog_)
                 break
@@ -342,15 +351,15 @@ class Utils(FurinaCog):
             syntax = ""
             for param in doc.params:
                 # usage is
-                # command <required> [optional]
-                optional = param.is_optional or param.type_name.startswith("Optional") or param.default
+                # command <required> [optional]  # noqa: ERA001
+                optional: bool = param.is_optional
                 usage += f" {'[' if optional else '<'}{param.arg_name}{']' if optional else '>'}"
                 # syntax is
                 # param_name : `param_type = default_value`
                 #     param description
                 syntax += f"\n{param.arg_name}: {param.type_name}"
                 syntax += (param.default + "\n") if param.default else "\n"
-                syntax += f"    {param.description}\n"
+                syntax += f"    - {param.description}\n"
 
             container = ui.Container(
                 ui.TextDisplay("## " + usage),
@@ -361,11 +370,16 @@ class Utils(FurinaCog):
                 ui.TextDisplay("-# Coded by ThanhZ", row=9)
             )
             if syntax:
-                container.add_item(ui.TextDisplay(f"**Syntax:** ```{syntax}```"))
-            aliases = "**Alias(es):** " + ", ".join(alias for alias in command.aliases) if command.aliases else ""
+                container.add_item(ui.TextDisplay(f"**Syntax:** ```py\n{syntax}```"))
+
+            aliases = "**Alias(es):** " + ", ".join(
+                alias for alias in command.aliases
+            ) if command.aliases else ""
+
             if aliases:
                 container.add_item(ui.Separator())
                 container.add_item(ui.TextDisplay(aliases))
+
             await ctx.reply(view=LayoutView().add_item(container))
         else:
             raise commands.BadArgument("""I don't recognize that command/category""")
@@ -415,16 +429,16 @@ class Utils(FurinaCog):
         await ctx.reply(embed=embed)
 
     @commands.hybrid_command(name='userinfo', aliases=['uinfo', 'whois'])
-    async def user_info_command(self, ctx: FurinaCtx, member: Optional[Member] = None):
-        """Get a user's info
+    async def user_info_command(self, ctx: FurinaCtx, member: Member | None = None) -> None:
+        """Get the user's info
 
-        Shows info about a member, including their name, id, status, roles,...
+        Shows info about the member, including their name, id, status, roles,...
         Shows your info if no member is provided.
 
         Parameters
         ----------
-        member: Optional[Member] = None
-            - A member to get info from
+        member : Member, optional
+            The member to get info from
         """
         member = ctx.guild.get_member(member.id if member else ctx.author.id)
         header = ui.Section(
@@ -439,46 +453,47 @@ class Utils(FurinaCog):
         container = ui.Container(
             header,
             ui.Separator(),
-            ui.TextDisplay(f"**Account Created:** <t:{account_created}> or <t:{account_created}:R>"),
+            ui.TextDisplay(("**Account Created:**"
+                            f"<t:{account_created}> or <t:{account_created}:R>")),
             ui.TextDisplay(f"**Server Joined:** <t:{server_joined}> or <t:{server_joined}:R>"),
-            ui.TextDisplay(f"**Roles ({len(member.roles) - 1}):** ```{', '.join(role.name for role in reversed(member.roles) if role.name != '@everyone')}```"),
+            ui.TextDisplay(f"**Roles ({len(member.roles) - 1}):** ```{', '.join(
+                role.name for role in reversed(member.roles) if role.name != '@everyone'
+            )}```"),
             ui.TextDisplay("-# Coded by ThanhZ", row=9)
         )
         if member.activities:
             container.add_item(ui.Separator())
-            _activities = "**Activities:**\n"
+            activities = "**Activities:**\n"
             for i, activity in enumerate(member.activities, 1):
-                _activities += f"{i}. **{activity.type.name.capitalize()}"
-                _activities += f"{':** ' + activity.name if activity.name else '**'}\n"
-            container.add_item(ui.TextDisplay(_activities))
+                activities += f"{i}. **{activity.type.name.capitalize()}"
+                activities += f"{':** ' + activity.name if activity.name else '**'}\n"
+            container.add_item(ui.TextDisplay(activities))
         await ctx.reply(view=LayoutView().add_item(container))
 
     @staticmethod
     async def dictionary_call(word: str) -> PaginatedView:
-        """
-        Calls the dictionaryapi
+        """Calls the dictionaryapi
 
         Parameters
-        -----------
-        `word: str`
-            - The word
+        ----------
+        word : str
+            The word
 
         Returns
-        -----------
-        `PaginatedView`
+        -------
+        PaginatedView
             A view that contains list of embeds and navigate buttons
         """
         embeds: list[Embed] = []
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}") as response:
-                if response.status == 404:
-                    embed = Embed(
-                        title=word.capitalize(),
-                        description="No definitions found. API call returned 404."
-                    ).set_footer(text="Coded by ThanhZ")
-                    return PaginatedView(timeout=300, embeds=[embed])
-                data: list[dict] = eval(await response.text())
-
+        dictionary_link = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
+        async with aiohttp.ClientSession() as cs, cs.get(dictionary_link) as response:
+            if response.status == 404:
+                embed = Embed(
+                    title=word.capitalize(),
+                    description="No definitions found. API call returned 404."
+                ).set_footer(text="Coded by ThanhZ")
+                return PaginatedView(timeout=300, embeds=[embed])
+            data: list[dict] = ast.literal_eval(await response.text())
         embed = Embed(title=word.capitalize()).set_footer(text="Coded by ThanhZ")
 
         for d in data:
@@ -519,7 +534,7 @@ class Utils(FurinaCog):
 
     @commands.hybrid_command(name='dictionary', aliases=['dict'])
     @app_commands.allowed_installs(guilds=True, users=True)
-    async def dict_command(self, ctx: FurinaCtx, word: str):
+    async def dict_command(self, ctx: FurinaCtx, word: str) -> None:
         """Lookup a word in the dictionary
 
         Use DictionaryAPI to look up a word.
@@ -527,14 +542,14 @@ class Utils(FurinaCog):
 
         Parameters
         ----------
-        word: str
-            - The word to look up
+        word : str
+            The word to look up
         """
         view = await self.dictionary_call(word.split()[0])
         view.message = await ctx.reply(embed=view.embeds[0], view=view)
 
     @commands.command(name='wordoftheday', aliases=['wotd'])
-    async def wotd_command(self, ctx: FurinaCtx, *, date: Optional[str] = None):
+    async def wotd_command(self, ctx: FurinaCtx, *, date: str | None = None) -> None:
         """View today's word
 
         Shows today's, or any day's word of the day.
@@ -543,22 +558,25 @@ class Utils(FurinaCog):
 
         Parameters
         ----------
-        date: Optional[str] = None
-            - The date to get word of the day from
+        date : str, optional
+            The date to get word of the day from
         """
         date_ = dateparser.parse(
-            date if date else datetime.datetime.now(tz=datetime.timezone.utc).strftime(r"%Y-%m-%d"),
+            date or datetime.datetime.now(tz=datetime.timezone.utc).strftime(r"%Y-%m-%d"),
             settings={'TIMEZONE': 'UTC', 'RETURN_AS_TIMEZONE_AWARE': True}
         )
         date = date_.strftime(r"%Y-%m-%d")
         day_check = r"202\d-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"
         if not re.match(day_check, date):
-            return await ctx.reply("You entered a very old date, try a newer one")
+            await ctx.reply("You entered a very old date, try a newer one")
+            return
         ddmmyyyy = date_.strftime(r"%A %d/%m/%Y")
-        async with self.bot.cs.get(f"https://api.wordnik.com/v4/words.json/wordOfTheDay?date={date}&api_key={WORDNIK_API}") as response:
-            if not response.status == 200:
-                return await ctx.reply("Something went wrong")
-            content: Dict = await response.json()
+        api_link = f"https://api.wordnik.com/v4/words.json/wordOfTheDay?date={date}&api_key={WORDNIK_API}"
+        async with self.bot.cs.get(api_link) as response:
+            if response.status != 200:
+                await ctx.reply("Something went wrong")
+                return
+            content: dict = await response.json()
         container = ui.Container(
             ui.TextDisplay(f"## {content['word']} ({content['definitions'][0]['partOfSpeech']})"),
             ui.TextDisplay("**Definition:**\n>>> " + content['definitions'][0]['text']),
@@ -580,8 +598,8 @@ class Utils(FurinaCog):
         - Number of slash commands have been completed.
         - Most recent 10 slash commands.
         """
-        pass
+        raise NotImplementedError
 
 
-async def setup(bot: FurinaBot):
+async def setup(bot: FurinaBot) -> None:
     await bot.add_cog(Utils(bot))
