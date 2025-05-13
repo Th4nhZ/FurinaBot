@@ -14,19 +14,19 @@ limitations under the License.
 
 from __future__ import annotations
 
+import logging
 import traceback
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from discord import Activity, ActivityType, DMChannel, Member, Message, ui
 from discord.ext import commands
 
-from furina import FurinaCog, FurinaCtx
-from settings import ACTIVITY_NAME, CROSS, MUSIC_CHANNEL
+from core import FurinaCog, FurinaCtx, settings
 
 if TYPE_CHECKING:
     from wavelink import Playable, Player, TrackEndEventPayload, TrackStartEventPayload
 
-    from furina import FurinaBot
+    from core import FurinaBot
 
 
 class BotEvents(FurinaCog):
@@ -43,7 +43,7 @@ class BotEvents(FurinaCog):
         """
         await self.bot.change_presence(
             activity=Activity(type=ActivityType.playing, 
-                              name=ACTIVITY_NAME, 
+                              name=settings.ACTIVITY_NAME, 
                               state=f"Playing: {state}")
         )
 
@@ -58,7 +58,7 @@ class BotEvents(FurinaCog):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: FurinaCtx, error: commands.errors.CommandError) -> None:
-        err: str = CROSS
+        err: str = settings.CROSS
         if isinstance(error, commands.CommandNotFound):
             return
         if isinstance(error, commands.MissingRequiredArgument):
@@ -68,19 +68,24 @@ class BotEvents(FurinaCog):
         view = ui.LayoutView().add_item(ui.Container(ui.TextDisplay(err)))
         await ctx.reply(view=view, ephemeral=True, delete_after=60)
 
-        traceback.print_exception(error)
+        logging.error(
+            "Command: %s | Error: %s | Traceback: %s",
+            ctx.command,
+            error,
+            traceback.format_exc()
+        )
 
     @commands.Cog.listener()
-    async def on_voice_state_update(self, member: Member, before, after) -> None:
+    async def on_voice_state_update(self, member: Member, before: Any, after: Any) -> None:
         # Change activity when bot leave voice channel
         if member == self.bot.user and not after.channel:
             await self.update_activity()
 
         # Leave if the bot is the last one in the channel
-        if before.channel and not after.channel:
+        if before.channel and not after.channel:  # noqa: SIM102
             if len(before.channel.members) == 1 and before.channel.members[0] == self.bot.user:
                 await member.guild.voice_client.disconnect(force=True)
-                channel = self.bot.get_channel(MUSIC_CHANNEL)
+                channel = self.bot.get_partial_messageable(settings.MUSIC_CHANNEL)
                 embed = self.bot.embed
                 embed.title = "I am not afraid of ghost i swear :fearful:"
                 embed.set_image(url="https://media1.tenor.com/m/Cbwh3gVO4KAAAAAC/genshin-impact-furina.gif")

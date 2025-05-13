@@ -12,5 +12,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from .furina import FurinaBot as FurinaBot, FurinaCog as FurinaCog, FurinaCtx as FurinaCtx
 from .lavalink import Lavalink as Lavalink
-from .utils import setup_logging as setup_logging

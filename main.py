@@ -19,9 +19,7 @@ import sys
 
 from aiohttp import ClientSession
 
-from core import Lavalink, utils
-from furina import FurinaBot
-from settings import SKIP_LL
+from core import FurinaBot, Lavalink, settings, utils
 
 
 async def main(*, skip_ll: bool) -> None:
@@ -36,5 +34,5 @@ async def main(*, skip_ll: bool) -> None:
 
 
 if __name__ == "__main__":
-    skip_ll = bool("--skip-ll" in sys.argv or SKIP_LL)
+    skip_ll = bool("--skip-ll" in sys.argv or settings.SKIP_LL)
     asyncio.run(main(skip_ll=skip_ll))

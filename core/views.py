@@ -64,29 +64,34 @@ class PaginatedView(View):
     def __init__(self, *, timeout: float, embeds: list[Embed] | Embed) -> None:
         super().__init__(timeout=timeout)
         self.embeds = embeds if isinstance(embeds, list) else [embeds]
+        self.title: list[str] = [embed.title for embed in self.embeds]
+        self.length: int = len(self.embeds)
         self.page: int = 0
-        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
+        self.page_button.label = self.page_button_label
         if len(self.embeds) == 1:
             self.clear_items()
 
+    @property
+    def page_button_label(self) -> str:
+        return f"{self.title[self.page]} ({self.page + 1}/{self.length})"
+
+    def update_buttons(self) -> None:
+        self.first_button.disabled = self.page == 0
+        self.left_button.disabled = self.page == 0
+        self.page_button.label = self.page_button_label
+        self.right_button.disabled = self.page == self.length - 1
+        self.last_button.disabled = self.page == self.length - 1
+
     @ui.button(label="<<", disabled=True)
-    async def first_button(self, interaction: Interaction, button: Button) -> None:
+    async def first_button(self, interaction: Interaction, _: Button) -> None:
         self.page = 0
-        button.disabled = True
-        self.left_button.disabled = True
-        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"  # noqa: E501
-        self.right_button.disabled = False
-        self.last_button.disabled = False
+        self.update_buttons()
         await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
 
     @ui.button(label="<", disabled=True)
-    async def left_button(self, interaction: Interaction, button: Button) -> None:
+    async def left_button(self, interaction: Interaction, _: Button) -> None:
         self.page -= 1
-        self.first_button.disabled = self.page == 0
-        button.disabled = self.page == 0
-        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
-        self.right_button.disabled = False
-        self.last_button.disabled = False
+        self.update_buttons()
         await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
 
     @ui.button(style=ButtonStyle.blurple, disabled=True)
@@ -94,23 +99,15 @@ class PaginatedView(View):
         pass
 
     @ui.button(label=">")
-    async def right_button(self, interaction: Interaction, button: Button) -> None:
-        self.page += 1 if self.page <= len(self.embeds) - 1 else self.page
-        self.first_button.disabled = False
-        self.left_button.disabled = False
-        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
-        button.disabled = self.page == len(self.embeds) - 1
-        self.last_button.disabled = self.page == len(self.embeds) - 1
+    async def right_button(self, interaction: Interaction, _: Button) -> None:
+        self.page += 1 if self.page <= self.length - 1 else self.page
+        self.update_buttons()
         await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
 
     @ui.button(label=">>")
-    async def last_button(self, interaction: Interaction, button: Button) -> None:
-        self.page = len(self.embeds) - 1
-        self.first_button.disabled = False
-        self.page_button.label = f"{self.embeds[self.page].title} ({self.page + 1}/{len(self.embeds)})"
-        self.left_button.disabled = False
-        self.right_button.disabled = True
-        button.disabled = True
+    async def last_button(self, interaction: Interaction, _: Button) -> None:
+        self.page = self.length - 1
+        self.update_buttons()
         await interaction.response.edit_message(embed=self.embeds[self.page], view=self)
 
 

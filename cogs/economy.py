@@ -14,42 +14,42 @@ limitations under the License.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+import aiofiles
 import asqlite
 from discord.ext import commands
 
-from furina import FurinaCog, FurinaCtx
-
+from core import FurinaCog, FurinaCtx
 
 if TYPE_CHECKING:
-    from furina import FurinaBot
+    from core import FurinaBot
 
 
 class Economy(FurinaCog):
     """Economy Related Commands"""
-    def __init__(self, bot):
+    def __init__(self, bot: FurinaBot) -> None:
         super().__init__(bot)
-        self.pool: asqlite.Pool = asqlite.create_pool('furina.db')
 
     # async def cog_load(self):
     #     await self.__update_economy_emojis()
     #     await self.__create_economy_tables()
     #     return await super().cog_load()
 
-    async def __update_economy_emojis(self):
+    async def __update_economy_emojis(self) -> None:
         emojis = await self.bot.fetch_application_emojis()
         for emoji in emojis:
             if emoji.name == 'primogem':
                 self.primo = f"<{emoji.name}:{emoji.id}>"
-                break
         if not self.primo:
-            with open('./assets/economy/primogem.png', 'r') as primo:
-                image = primo.read()
-                emoji = await self.bot.create_application_emoji(name='primogem',image=image)
-                self.primo = f"<{emoji.name}:{emoji.id}>"
+            primo_path = Path('./assets/economy/primogem.png')
+            async with aiofiles.open(primo_path, mode='rb') as primo:
+                image = await primo.read()
+            emoji = await self.bot.create_application_emoji(name='primogem', image=image)
+            self.primo = f"<{emoji.name}:{emoji.id}>"
 
-    async def __create_economy_tables(self):
+    async def __create_economy_tables(self) -> None:
         async with self.pool.acquire() as conn:
             await conn.execute(
                 """
@@ -63,7 +63,7 @@ class Economy(FurinaCog):
                 """)
 
     @commands.command(name='daily')
-    async def eco_daily(self, ctx: FurinaCtx):
+    async def eco_daily(self, ctx: FurinaCtx) -> None:
         raise NotImplementedError
 
 

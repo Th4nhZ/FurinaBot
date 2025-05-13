@@ -25,7 +25,7 @@ from discord.ext import commands
 from discord.ext.commands import errors, when_mentioned_or
 
 from cogs import EXTENSIONS
-from settings import ACTIVITY_NAME, CHECKMARK, CROSS, DEBUG_WEBHOOK, DEFAULT_PREFIX, OWNER_ID, TOKEN
+from core import settings
 
 if typing.TYPE_CHECKING:
     import aiohttp
@@ -41,14 +41,14 @@ class FurinaCtx(commands.Context):
     async def tick(self) -> None:
         """Reacts checkmark to the command message"""
         try:
-            await self.message.add_reaction(CHECKMARK)
+            await self.message.add_reaction(settings.CHECKMARK)
         except discord.HTTPException:
             pass
 
     async def cross(self) -> None:
         """Reacts a cross to the command message"""
         try:
-            await self.message.add_reaction(CROSS)
+            await self.message.add_reaction(settings.CROSS)
         except discord.HTTPException:
             pass
 
@@ -79,6 +79,9 @@ class FurinaBot(commands.Bot):
             async with FurinaBot(client_session=client_session) as bot:
                 await bot.start(TOKEN)
     """
+
+    DEFAULT_PREFIX = settings.DEFAULT_PREFIX
+    
     def __init__(self, *, client_session: aiohttp.ClientSession, skip_lavalink: bool) -> None:
         super().__init__(command_prefix=self.get_pre,
                          case_insensitive=True,
@@ -90,8 +93,8 @@ class FurinaBot(commands.Bot):
                              guild=True
                          ),
                          activity=discord.Activity(type=discord.ActivityType.playing,
-                                                   name=ACTIVITY_NAME))
-        self.owner_id = OWNER_ID
+                                                   name=settings.ACTIVITY_NAME))
+        self.owner_id = settings.OWNER_ID
         self.skip_lavalink = skip_lavalink
         self.cs = client_session
         self.prefixes: dict[int, str] = {}
@@ -114,8 +117,8 @@ class FurinaBot(commands.Bot):
     def get_pre(self, _: FurinaBot, message: discord.Message) -> list[str]:
         """Custom `get_prefix` method"""
         if not message.guild:
-            return when_mentioned_or(DEFAULT_PREFIX)(self, message)
-        prefix = self.prefixes.get(message.guild.id) or DEFAULT_PREFIX
+            return when_mentioned_or(self.DEFAULT_PREFIX)(self, message)
+        prefix = self.prefixes.get(message.guild.id) or self.DEFAULT_PREFIX
         return when_mentioned_or(prefix)(self, message)
 
     async def on_ready(self) -> None:
@@ -126,7 +129,7 @@ class FurinaBot(commands.Bot):
             embed = self.embed.set_author(name="BOT IS READY!")
             embed.color = self.user.accent_color
             embed.timestamp = utils.utcnow()
-            webhook = discord.Webhook.from_url(DEBUG_WEBHOOK, client=self)
+            webhook = discord.Webhook.from_url(settings.DEBUG_WEBHOOK, client=self)
             await webhook.send(embed=embed,
                                avatar_url=self.user.display_avatar.url,
                                username=self.user.display_name)
@@ -160,7 +163,7 @@ class FurinaBot(commands.Bot):
         logging.info("Loaded Jishaku extension")
 
     async def start(self) -> None:
-        return await super().start(TOKEN, reconnect=True)
+        return await super().start(settings.TOKEN, reconnect=True)
 
 
 class FurinaCog(commands.Cog):

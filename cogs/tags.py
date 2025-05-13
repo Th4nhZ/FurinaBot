@@ -21,21 +21,17 @@ from typing import TYPE_CHECKING
 import asqlite
 from discord.ext import commands
 
+from core import FurinaCog, FurinaCtx, settings
 from core.views import PaginatedView
-from furina import FurinaCog, FurinaCtx
-from settings import DEFAULT_PREFIX
 
 if TYPE_CHECKING:
     from discord import Message
 
-    from furina import FurinaBot
+    from core import FurinaBot
 
 
 class Tags(FurinaCog):
     """Tags Related Commands"""
-    def get_prefix(self, ctx: FurinaCtx) -> str:
-        return self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX
-
     async def cog_load(self) -> None:
         self.pool = await asqlite.create_pool(pathlib.Path() / 'db' / 'tags.db')
         await self.__create_tag_tables()
@@ -107,16 +103,16 @@ class Tags(FurinaCog):
 
         Parameters
         ----------
-        name : str | None = None
-            - Name of the tag
-        content : str | None = None
-            - Content of the tag
+        name : str, optional
+            Name of the tag
+        content : str, optional
+            Content of the tag
         """
         def check(m: Message) -> bool:
             return (m.author == ctx.author and
                     m.channel == ctx.channel and
                     m.content and not
-                    m.content.startswith((self.get_prefix(ctx), self.bot.user.mention)))
+                    m.content.startswith(tuple(self.bot.get_pre(self.bot, m))))
         # tag create /BLANK/
         if not name:
             try:
@@ -190,7 +186,7 @@ class Tags(FurinaCog):
         Parameters
         ----------
         name : str
-            - Name of the tag
+            Name of the tag
         """
         name = name.lower().replace('"', '').replace("'", "")
         if ctx.author.guild_permissions.manage_guild:
@@ -247,9 +243,9 @@ class Tags(FurinaCog):
         Parameters
         ----------
         alias : str
-            - Name of the alias
+            Name of the alias
         name : str
-            - Name of the tag
+            Name of the tag
         """
         check_alias_exist = await self.__check_tag_name(ctx, alias)
         if check_alias_exist:
@@ -274,7 +270,7 @@ class Tags(FurinaCog):
         Parameters
         ----------
         name : str
-            - Name of the tag
+            Name of the tag
         """
         name = name.lower().replace('"', '').replace("'", "")
         async with self.pool.acquire() as db:

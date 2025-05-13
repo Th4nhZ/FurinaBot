@@ -14,39 +14,49 @@ limitations under the License.
 
 from __future__ import annotations
 
-from typing import Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
+import discord
 import numpy as np
-from discord import app_commands, ui, Interaction, Message
+from discord import Interaction, Message, app_commands, ui
 from discord.ext import commands
 
-from furina import FurinaCog, FurinaCtx
+from core import FurinaCog, FurinaCtx
 
 if TYPE_CHECKING:
-    from furina import FurinaBot
+    from core import FurinaBot
 
 
 class Fun(FurinaCog):
     """Funni Commands haha XD"""
     def __init__(self, bot: FurinaBot) -> None:
         super().__init__(bot)
-        self.ctx_menu_liemeter = app_commands.ContextMenu(name="Lie Detector", callback=self.lie_detector)
+        self.ctx_menu_liemeter = app_commands.ContextMenu(
+            name="Lie Detector", 
+            callback=self.lie_detector
+        )
         self.bot.tree.add_command(self.ctx_menu_liemeter)
+    
+    @property
+    def rng(self) -> np.random.Generator:
+        """Return a random number generator"""
+        return np.random.default_rng()
 
-    async def cog_unload(self):
+    async def cog_unload(self) -> None:
         self.bot.tree.remove_command(self.ctx_menu_liemeter.name, type=self.ctx_menu_liemeter.type)
+        await super().cog_unload()
 
-    async def lie_detector(self, interaction: Interaction, message: Message):
+    async def lie_detector(self, interaction: Interaction, message: Message) -> None:
         if message.author.id == self.bot.user.id:
             await interaction.response.send_message("I always tell the truth")
             return
-        if np.random.random() < 0.5:
+        if self.rng.random() < 0.5:
             await interaction.response.send_message("This message is verified to be the truth")
         else:
             await interaction.response.send_message("https://tenor.com/kXIbVjdMB8x.gif")
 
     @commands.command(name='fortune', aliases=['lucky', 'slip', 'fortuneslip'])
-    async def fortune_slip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
+    async def fortune_slip_command(self, ctx: FurinaCtx, number: int = 1) -> None:
         """Draw a fortune slip
 
         Give you random fortune from 6 levels, from high to low:
@@ -61,10 +71,10 @@ class Fun(FurinaCog):
 
         Parameters
         ----------
-        number : Optional[int] = 1
-            - How many times you want to think before drawing a slip
+        number : int, optional, default=1
+            How many times you want to think before drawing a slip
         """
-        fortunes: List[str] = [
+        fortunes: list[str] = [
             "Great Fortune",
             "Good Fortune",
             "Modest Fortune",
@@ -72,8 +82,8 @@ class Fun(FurinaCog):
             "Misfortune",
             "Great Misfortune"
         ]
-        fortune_yap: List[List[str]] = [
-            [ # Great Fortune
+        fortune_yap: list[list[str]] = [
+            [  # Great Fortune
 """The message you've been waiting for will arrive without delay.
 A mistake from the past becomes your hidden strength.
 You'll meet someone who reminds you who you really are.
@@ -119,7 +129,7 @@ Even hesitation will take you somewhere meaningful.
 Your lucky object for the day: [Wristwatch]
 [It ticks with every second you own.]
 Don't waste time doubting yourself."""],
-            [ # Good Fortune
+            [  # Good Fortune
 """You'll notice progress where there used to be only effort.
 Something small will go better than planned.
 An unexpected compliment will stick with you.
@@ -160,7 +170,7 @@ It's a day to appreciate what is, not just chase what's next.
 Your lucky object for the day: [Pair of Headphones]
 [They help you tune in or tune out, depending on what you need.]
 Listen carefully—to music, to people, to yourself."""],
-            [ # Modest Fortune
+            [  # Modest Fortune
 """You'll avoid an awkward moment without realizing it.
 A tiny choice today might save you some hassle later.
 Your effort won't wow anyone—but it'll get the job done.
@@ -201,7 +211,7 @@ Today's main win: nothing major goes wrong.
 Your lucky object for the day: [Coin in Your Pocket]
 [Not enough to buy much, but better than nothing.]
 Carry a little luck—just in case."""],
-            [ # Rising Fortune
+            [  # Rising Fortune
 """Something you've been working on will finally start showing signs of life.
 A chance meeting will plant the seed for something bigger.
 You'll feel more ready today, even if nothing's changed.
@@ -242,7 +252,7 @@ It's a good day to prep for what you want to happen.
 Your lucky object for the day: [Blank Notebook]
 [Every line you fill moves you forward.]
 Start something—even if it's just the outline."""],
-            [ # Misfortune
+            [  # Misfortune
 """A simple task might turn oddly complicated.
 Someone may misunderstand you, even if you explain.
 You'll get what you asked for—but not how you wanted it.
@@ -283,7 +293,7 @@ Today's goal? Survive it with your sanity intact.
 Your unlucky object for the day: [Dead Battery]
 [No juice, no spark, just frustration.]
 Charge yourself before you try fixing anything else."""],
-            [ # Great Misfortune
+            [  # Great Misfortune
 """What can go wrong might go wrong—twice.
 A small slip will spiral harder than expected.
 Even silence will feel loud today.
@@ -326,12 +336,12 @@ Your cursed object for the day: [Wobbly Chair]
 Check before you trust anything today."""]
 ]
         if number == 1 or number not in range(1, 10_000):
-            fortune = np.random.choice(range(len(fortunes)), size=100)[-1]
-            header=f"{ctx.author.mention} thought very hard before drawing a fortune slip"
+            fortune = self.rng.choice(range(len(fortunes)), size=100)[-1]
+            header = f"{ctx.author.mention} thought very hard before drawing a fortune slip"
         else:
-            fortune: int = np.random.randint(0, len(fortunes) - 1)
-            header=f"{ctx.author.mention} thought {number} times before drawing a fortune slip"
-        yap: str = np.random.choice(fortune_yap[fortune])
+            fortune: int = self.rng.randint(0, len(fortunes) - 1)
+            header = f"{ctx.author.mention} thought {number} times before drawing a fortune slip"
+        yap: str = self.rng.choice(fortune_yap[fortune])
         fortune_section = ui.Section(
             ui.TextDisplay("### " + header),
             ui.TextDisplay(f"## {fortunes[fortune]}"),
@@ -346,7 +356,7 @@ Check before you trust anything today."""]
         await ctx.send(view=view, silent=True)
 
     @commands.command(name='dice', aliases=['roll'])
-    async def dice_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
+    async def dice_command(self, ctx: FurinaCtx, number: int = 1) -> None:
         """Roll a dice 6
 
         Roll a dice 6 `number` of times.
@@ -355,16 +365,16 @@ Check before you trust anything today."""]
 
         Parameters
         ----------
-        number : Optional[int] = 1
-            - How many times you want to roll the dice
+        number : int, optional, default=1
+            How many times you want to roll the dice
         """
         if number == 1 or number not in range(1, 1000):
-            rand_num = np.random.randint(1, 7)
+            rand_num = self.rng.randint(1, 7)
             header = f"{ctx.author.mention} rolled a dice"
             seq = None
         else:
-            seq: List[int] = np.random.randint(1, 7, size=number).tolist()
-            seq: List[str] = [str(seq_) for seq_ in seq]
+            seq: list[int] = self.rng.randint(1, 7, size=number).tolist()
+            seq: list[str] = [str(seq_) for seq_ in seq]
             rand_num = seq[-1]
             seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
             header = f"{ctx.author.mention} rolled a dice {number} times"
@@ -383,7 +393,7 @@ Check before you trust anything today."""]
         await ctx.send(view=view, silent=True)
 
     @commands.command(name='flip', aliases=['coin', 'coinflip'])
-    async def flip_command(self, ctx: FurinaCtx, number: Optional[int] = 1) -> None:
+    async def flip_command(self, ctx: FurinaCtx, number: int = 1) -> None:
         """Flip a coin
 
         Flip a coin `number` of times.
@@ -392,17 +402,17 @@ Check before you trust anything today."""]
 
         Parameters
         ----------
-        number : Optional[int] = 1
-            - How many times you want to flip the coin
+        number : int, optional, default=1
+            How many times you want to flip the coin
         """
         if number == 1 or number not in range(1, 1000):
-            rand_flip: List[str] = np.random.choice(["Head", "Tail"])
+            rand_flip: list[str] = self.rng.choice(["Head", "Tail"])
             header = f"{ctx.author.mention} flipped a coin"
             seq = None
         else:
-            seq: List[str] = np.random.choice(["Head", "Tail"], size=number).tolist()
+            seq: list[str] = self.rng.choice(["Head", "Tail"], size=number).tolist()
             rand_flip = seq[-1]
-            seq: List[str] = [seq_[0] for seq_ in seq]
+            seq: list[str] = [seq_[0] for seq_ in seq]
             seq: str = (' '.join(seq[:100]) + ('...' if len(seq) > 100 else ''))
             header = f"{ctx.author.mention} flipped a coin {number} times"
         section = ui.Section(
@@ -431,7 +441,7 @@ Check before you trust anything today."""]
         question : str
             - Your question
         """
-        answers: List[str] = [
+        answers: list[str] = [
             "It is certain",
             "It is decidedly so",
             "Without a doubt",
@@ -454,7 +464,7 @@ Check before you trust anything today."""]
             "Concentrate and ask again"]
         section = ui.Section(
             ui.TextDisplay(f"### {ctx.author.mention} asked the magic 8 ball"),
-            ui.TextDisplay(f"## {np.random.choice(answers)}"),
+            ui.TextDisplay(f"## {self.rng.choice(answers)}"),
             accessory=ui.Thumbnail(r"https://th.bing.com/th/id/R.94318dc029cf3858ebbd4a5bd95617d9?rik=%2bjjVGtbqXgWhQA&pid=ImgRaw&r=0")
         )
         container = ui.Container(

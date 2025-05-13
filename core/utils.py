@@ -19,7 +19,7 @@ import logging.handlers
 import pathlib
 
 # Logging
-LOG_DIR = pathlib.Path('logs')
+LOG_DIR = pathlib.Path() / 'logs'
 
 
 class LogFormatter(logging.Formatter):

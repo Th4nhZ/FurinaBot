@@ -7,7 +7,6 @@ dependencies = [
     "aiohttp",
     "asqlite",
     "dateparser",
-    "deep-translator",
     "discord.py",
     "enka",
     "jishaku",

@@ -5,6 +5,5 @@
 /.vscode
 /db
 /logs
-/plugins
-/Lavalink*.jar
+/lavalink/
 /TODO.txt

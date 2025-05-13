@@ -36,12 +36,11 @@ from discord.ext import commands
 from discord.ui import Select
 from wavelink import NodeStatus, Pool
 
+from core import FurinaBot, FurinaCog, FurinaCtx, settings
 from core.views import LayoutView, PaginatedView
-from furina import FurinaBot, FurinaCog, FurinaCtx
-from settings import CHECKMARK, CROSS, DEFAULT_PREFIX, WORDNIK_API
 
 if TYPE_CHECKING:
-    from furina import FurinaBot
+    from core import FurinaBot
 
 
 class HelpActionRow(ui.ActionRow):
@@ -66,7 +65,7 @@ class HelpSelect(Select):
     async def callback(self, interaction: discord.Interaction) -> None:
         container = Utils.list_cog_commands(
             cog=self.bot.get_cog(self.values[0]),
-            prefix=self.bot.prefixes.get(interaction.guild.id) or DEFAULT_PREFIX,
+            prefix=self.bot.prefixes.get(interaction.guild.id) or settings.DEFAULT_PREFIX,
         )
         container.add_item(ui.Separator()).add_item(HelpActionRow(bot=self.bot))
         view = LayoutView().add_item(container)
@@ -146,7 +145,7 @@ class Utils(FurinaCog):
             return
 
         if message.content == bot.user.mention:
-            prefix = bot.prefixes.get(message.guild.id) or DEFAULT_PREFIX
+            prefix = bot.prefixes.get(message.guild.id) or settings.DEFAULT_PREFIX
             header = ui.Section(
                 ui.TextDisplay("## Miss me that much?"),
                 ui.TextDisplay(f"**My prefix is** `{prefix}`"),
@@ -237,11 +236,11 @@ class Utils(FurinaCog):
         prefix: str = prefix.strip().replace('"', "").replace("'", "")
         container = ui.Container(ui.TextDisplay("-# Coded by ThanhZ", row=9))
         if len(prefix) > 3 or not prefix:
-            container.add_item(ui.TextDisplay(f"{CROSS} **Invalid prefix**"))
+            container.add_item(ui.TextDisplay(f"{settings.CROSS} **Invalid prefix**"))
             await ctx.reply(view=LayoutView().add_item(container))
             return
         async with self.pool.acquire() as db:
-            if prefix in ['clear', 'reset', 'default', DEFAULT_PREFIX]:
+            if prefix in ['clear', 'reset', 'default', settings.DEFAULT_PREFIX]:
                 await db.execute(
                     """
                     DELETE FROM custom_prefixes WHERE guild_id = ?
@@ -252,10 +251,10 @@ class Utils(FurinaCog):
                     INSERT OR REPLACE INTO custom_prefixes (guild_id, prefix) VALUES (?, ?)
                     """, ctx.guild.id, prefix)
         await self.__update_custom_prefixes()
-        prefix = self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX
+        prefix = self.bot.prefixes.get(ctx.guild.id) or settings.DEFAULT_PREFIX
         container.add_item(
             ui.TextDisplay(
-                f"{CHECKMARK} **Prefix set to** `{prefix}`"
+                f"{settings.CHECKMARK} **Prefix set to** `{prefix}`"
             )
         )
         await ctx.reply(view=LayoutView().add_item(container))
@@ -312,7 +311,7 @@ class Utils(FurinaCog):
         """
         # !help
         if query is None:
-            prefix = self.bot.prefixes.get(ctx.guild.id) or DEFAULT_PREFIX
+            prefix = self.bot.prefixes.get(ctx.guild.id) or settings.DEFAULT_PREFIX
             header = ui.Section(
                 ui.TextDisplay(f"## {self.bot.user.mention} Help Command"),
                 ui.TextDisplay("### To get help with a category\n"
@@ -571,7 +570,7 @@ class Utils(FurinaCog):
             await ctx.reply("You entered a very old date, try a newer one")
             return
         ddmmyyyy = date_.strftime(r"%A %d/%m/%Y")
-        api_link = f"https://api.wordnik.com/v4/words.json/wordOfTheDay?date={date}&api_key={WORDNIK_API}"
+        api_link = f"https://api.wordnik.com/v4/words.json/wordOfTheDay?date={date}&api_key={settings.WORDNIK_API}"
         async with self.bot.cs.get(api_link) as response:
             if response.status != 200:
                 await ctx.reply("Something went wrong")

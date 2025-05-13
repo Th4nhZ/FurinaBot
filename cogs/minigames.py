@@ -36,7 +36,7 @@ from core.views import LayoutView, PaginatedView, View
 from .utils import Utils
 
 if TYPE_CHECKING:
-    from furina import FurinaBot, FurinaCtx
+    from core import FurinaBot, FurinaCtx
 
 
 class RPSButton(ui.Button):
