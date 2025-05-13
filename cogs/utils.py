@@ -451,7 +451,7 @@ class Utils(FurinaCog):
         container = ui.Container(
             header,
             ui.Separator(),
-            ui.TextDisplay(("**Account Created:**"
+            ui.TextDisplay(("**Account Created:** "
                             f"<t:{account_created}> or <t:{account_created}:R>")),
             ui.TextDisplay(f"**Server Joined:** <t:{server_joined}> or <t:{server_joined}:R>"),
             ui.TextDisplay(f"**Roles ({len(member.roles) - 1}):** ```{', '.join(
