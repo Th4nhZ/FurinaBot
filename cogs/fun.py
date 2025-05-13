@@ -14,9 +14,8 @@ limitations under the License.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
-import discord
 import numpy as np
 from discord import Interaction, Message, app_commands, ui
 from discord.ext import commands
@@ -71,8 +70,8 @@ class Fun(FurinaCog):
 
         Parameters
         ----------
-        number : int, optional, default=1
-            How many times you want to think before drawing a slip
+        number : int, optional
+            How many times you want to think before drawing a slip, default is `1`
         """
         fortunes: list[str] = [
             "Great Fortune",
@@ -365,8 +364,8 @@ Check before you trust anything today."""]
 
         Parameters
         ----------
-        number : int, optional, default=1
-            How many times you want to roll the dice
+        number : int, optional
+            How many times you want to roll the dice, default is `1`
         """
         if number == 1 or number not in range(1, 1000):
             rand_num = self.rng.randint(1, 7)
@@ -402,8 +401,8 @@ Check before you trust anything today."""]
 
         Parameters
         ----------
-        number : int, optional, default=1
-            How many times you want to flip the coin
+        number : int, optional
+            How many times you want to flip the coin, default is `1`
         """
         if number == 1 or number not in range(1, 1000):
             rand_flip: list[str] = self.rng.choice(["Head", "Tail"])
@@ -439,7 +438,7 @@ Check before you trust anything today."""]
         Parameters
         ----------
         question : str
-            - Your question
+            Your question
         """
         answers: list[str] = [
             "It is certain",

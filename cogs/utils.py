@@ -356,8 +356,7 @@ class Utils(FurinaCog):
                 # syntax is
                 # param_name : `param_type = default_value`
                 #     param description
-                syntax += f"\n{param.arg_name}: {param.type_name}"
-                syntax += (param.default + "\n") if param.default else "\n"
+                syntax += f"\n{param.arg_name}: {param.type_name}\n"
                 syntax += f"    - {param.description}\n"
 
             container = ui.Container(
