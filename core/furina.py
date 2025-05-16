@@ -20,7 +20,7 @@ from platform import python_version
 
 import discord
 import wavelink
-from discord import app_commands, utils
+from discord import app_commands, ui, utils
 from discord.ext import commands
 from discord.ext.commands import errors, when_mentioned_or
 
@@ -69,38 +69,52 @@ class FurinaBot(commands.Bot):
 
     Attributes
     ----------
-    client_session: `aiohttp.ClientSession`
-        - The client session for the bot for easier http request
+    client_session : :obj:`aiohttp.ClientSession`
+        Aiohttp client session for making requests
+    skip_lavalink : :obj:`bool`
+        Whether to skip Lavalink or not
 
     Usage
-    ----------
+    -----
     .. code-block:: python
         async with aiohttp.ClientSession() as client_session:
-            async with FurinaBot(client_session=client_session) as bot:
+            async with FurinaBot(client_session=client_session, skip_lavalink=True) as bot:
                 await bot.start(TOKEN)
     """
 
-    DEFAULT_PREFIX = settings.DEFAULT_PREFIX
+    DEFAULT_PREFIX: str = settings.DEFAULT_PREFIX
     
     def __init__(self, *, client_session: aiohttp.ClientSession, skip_lavalink: bool) -> None:
-        super().__init__(command_prefix=self.get_pre,
-                         case_insensitive=True,
-                         strip_after_prefix=True,
-                         intents=discord.Intents.all(),
-                         help_command=None,
-                         allowed_contexts=app_commands.AppCommandContext(
-                             dm_channel=False,
-                             guild=True
-                         ),
-                         activity=discord.Activity(type=discord.ActivityType.playing,
-                                                   name=settings.ACTIVITY_NAME))
+        super().__init__(
+            command_prefix=self.get_pre,
+            case_insensitive=True,
+            strip_after_prefix=True,
+            intents=discord.Intents.all(),
+            help_command=None,
+            allowed_contexts=app_commands.AppCommandContext(
+                dm_channel=False,
+                guild=True
+            ),
+            activity=discord.Activity(
+                type=discord.ActivityType.playing,
+                name=settings.ACTIVITY_NAME
+            )
+        )
         self.owner_id = settings.OWNER_ID
         self.skip_lavalink = skip_lavalink
         self.cs = client_session
         self.prefixes: dict[int, str] = {}
 
     @property
+    def container(self) -> ui.Container:
+        """Container with default 'footer'"""
+        return ui.Container(
+            ui.TextDisplay("-# Coded by ThanhZ", row=39)
+        )
+
+    @property
     def embed(self) -> discord.Embed:
+        """Embed with default footer"""
         return discord.Embed().set_footer(text="Coded by ThanhZ")
 
     @property
@@ -176,4 +190,10 @@ class FurinaCog(commands.Cog):
 
     @property
     def embed(self) -> discord.Embed:
+        """Shortcut for `FurinaBot.embed`"""
         return self.bot.embed
+
+    @property
+    def container(self) -> ui.Container:
+        """Shortcut for `FurinaBot.container`"""
+        return self.bot.container

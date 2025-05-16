@@ -18,15 +18,21 @@ import pathlib
 from typing import TYPE_CHECKING
 
 import asqlite
+import discord
 import enka
+from discord import ui
 from discord.ext import commands
 
 from core import FurinaCog, FurinaCtx
+from core.views import LayoutView
 
 if TYPE_CHECKING:
-    import discord
 
     from core import FurinaBot
+
+
+class NotFoundError(Exception):
+    pass
 
 
 class Gacha(FurinaCog):
@@ -35,7 +41,7 @@ class Gacha(FurinaCog):
         super().__init__(bot)
         self.gi = enka.GenshinClient()
         self.hsr = enka.HSRClient()
-
+        
     async def cog_load(self) -> None:
         self.pool = await asqlite.create_pool(pathlib.Path() / 'db' / 'gacha.db')
         await self.__create_gacha_tables()
@@ -62,60 +68,123 @@ class Gacha(FurinaCog):
 
     @property
     def embed(self) -> discord.Embed:
-        """Shortcut for FurinaBot.embed"""
+        """Shortcut for `FurinaBot.embed`, with extra footer"""
         return self.bot.embed.set_footer(text="Coded by ThanhZ | Powered by Enka Network")
 
-    @commands.hybrid_group(name='gi', description="Get user info", fallback='get')
+    async def set_uid(self, sql: str, user_id: int, uid: str) -> None:
+        """Insert a user's UID with provided game to the database
+        
+        Parameters
+        ----------
+        sql : :class:`str`
+            SQL query to execute
+        user_id : :class:`int`
+            Discord user ID
+        uid : :class:`str`
+            UID to set
+        """
+        async with self.pool.acquire() as conn:
+            await conn.execute(sql, (user_id, uid))
+
+    async def get_uid(self, sql: str, user_id: int) -> str:
+        """Get a user's UID from the database
+        
+        Parameters
+        ----------
+        sql : :class:`str`
+            SQL query to execute
+        user_id : :class:`int`
+            Discord user ID
+
+        Returns
+        -------
+        str
+            UID of the user
+
+        Raises
+        ------
+        NotFoundError
+            UID not found
+        """
+        async with self.pool.acquire() as conn:
+            uid = await conn.fetchone(sql, (user_id,))
+            if not uid:
+                raise NotFoundError("UID not found")
+            return uid[0]
+
+    @commands.hybrid_group(name='gi', fallback='get')
     async def gi_group(self, ctx: FurinaCtx, uid: str | None = None) -> None:
+        """Get Genshin Impact user info
+
+        Get Genshin Impact user info by UID.
+        If no UID is provided, the bot will try to get your UID.
+        Use `/gi set <uid>` to set your UID.
+
+        Parameters
+        ----------
+        uid : str, optional
+            Genshin UID
+        """
         if uid is None:
-            async with self.pool.acquire() as db:
-                uid = await db.fetchone("SELECT uid FROM gi_uid WHERE user_id = ?", ctx.author.id)
-                uid = uid[0] if uid else None
-                if uid is None:
-                    await ctx.reply(
-                        "You have not set a UID yet! Use `/gi set <uid>` to set your UID"
-                    )
-                    return
+            uid = await self.get_uid("SELECT uid FROM gi_uid WHERE user_id = ?", ctx.author.id)
 
         async with self.gi as api:
             response = await api.fetch_showcase(uid)
             p_info = response.player
-        embed = self.embed
-        embed.title = f"{p_info.nickname}"
-        embed.set_author(name=uid, icon_url=p_info.profile_picture_icon.circle)
-        embed.set_thumbnail(url=p_info.namecard.full)
         abyss = f"{p_info.abyss_floor}-{p_info.abyss_level} ({p_info.abyss_stars})"
-        embed.description = (f"> {p_info.signature}\n"
-                             f"**Adventure Rank:** `{p_info.level}`\n"
-                             f"**World Level:** `{p_info.world_level}`\n"
-                             f"**Achievements:** `{p_info.achievements}`\n"
-                             f"**Abyss Floor:** `{abyss}`")
-        await ctx.reply(embed=embed)
 
-    @gi_group.command(name='set', description='Set your UID')
+        container = self.container
+        container.add_item(ui.MediaGallery(discord.MediaGalleryItem(p_info.namecard.full)))
+        container.add_item(ui.Separator())
+        header = ui.Section(
+            ui.TextDisplay(f"## {p_info.nickname} ({uid})"),
+            ui.TextDisplay(
+                f"> {p_info.signature}\n"
+                f"**Adventure Rank:** `{p_info.level}` ▪ **World Level:** `{p_info.world_level}`\n"
+                f"**Achievements:** `{p_info.achievements}`\n"
+                f"**Abyss Floor:** `{abyss}`"
+            ),
+            accessory=ui.Thumbnail(p_info.profile_picture_icon.circle)
+        )
+        container.add_item(header)
+        container.add_item(ui.Separator())
+        await ctx.reply(view=LayoutView().add_item(container))
+
+    @gi_group.command(name='set')
     async def set_uid_gi(self, ctx: FurinaCtx, *, uid: str) -> None:
-        async with self.gi as api, self.pool.acquire() as db:
-            try:
-                await api.fetch_showcase(uid, info_only=True)
-            except enka.errors.WrongUIDFormatError:
-                await ctx.reply("Invalid UID!")
-                return
-            await db.execute("INSERT OR REPLACE INTO gi_uid (user_id, uid) VALUES (?, ?)",
-                             ctx.author.id, 
-                             uid)
+        """Set your Genshin Impact UID
+        
+        Set your Genshin Impact UID to be used in the `/gi get` command.
+
+        Parameters
+        ----------
+        uid : str
+            Your Genshin UID
+        """
+        async with self.gi as api:
+            await api.fetch_showcase(uid, info_only=True)
+        await self.set_uid(
+            "INSERT OR REPLACE INTO gi_uid (user_id, uid) VALUES (?, ?)",
+            ctx.author.id, 
+            uid
+        )
         await ctx.reply("Your GI UID has been set to: " + uid)
 
-    @commands.hybrid_group(name='hsr', description="Get HSR user info", fallback='get')
+    @commands.hybrid_group(name='hsr', fallback='get')
     async def hsr_group(self, ctx: FurinaCtx, uid: str | None = None) -> None:
+        """Get HSR Impact user info
+
+        Get HSR Impact user info by UID.
+        If no UID is provided, the bot will try to get your UID.
+        Use `/hsr set <uid>` to set your UID.
+
+        Parameters
+        ----------
+        uid : str, optional
+            HSR UID
+        """
         if not uid:
-            async with self.pool.acquire() as db:
-                uid = await db.fetchone("SELECT uid FROM hsr_uid WHERE user_id = ?", ctx.author.id)
-                uid = uid[0] if uid else None
-                if uid is None:
-                    await ctx.reply(
-                        "You have not set a UID yet! Use `/hsr set <uid>` to set your UID"
-                    )
-                    return
+            uid = await self.get_uid("SELECT uid FROM hsr_uid WHERE user_id = ?", ctx.author.id)
 
         async with self.hsr as api:
             response = await api.fetch_showcase(uid)
@@ -136,15 +205,22 @@ class Gacha(FurinaCog):
 
     @hsr_group.command(name='set', description='Set your UID')
     async def set_uid_hsr(self, ctx: FurinaCtx, *, uid: str) -> None:
-        async with self.hsr as api, self.pool.acquire() as db:
-            try:
-                await api.fetch_showcase(uid, info_only=True)
-            except enka.errors.WrongUIDFormatError:
-                await ctx.reply("Invalid UID!")
-                return
-            await db.execute("INSERT OR REPLACE INTO hsr_uid (user_id, uid) VALUES (?, ?)", 
-                             ctx.author.id, 
-                             uid)
+        """Set your HSR Impact UID
+        
+        Set your HSR UID to be used in the `/hsr get` command.
+
+        Parameters
+        ----------
+        uid : str
+            Your HSR UID
+        """
+        async with self.hsr as api:
+            await api.fetch_showcase(uid, info_only=True)
+        await self.set_uid(
+            "INSERT OR REPLACE INTO hsr_uid (user_id, uid) VALUES (?, ?)", 
+            ctx.author.id, 
+            uid
+        )
         await ctx.reply("Your HSR UID has been set to: " + uid)
 
 

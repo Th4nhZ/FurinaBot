@@ -18,11 +18,9 @@ import logging
 import logging.handlers
 import pathlib
 
-# Logging
-LOG_DIR = pathlib.Path() / 'logs'
-
 
 class LogFormatter(logging.Formatter):
+    """Custom log formatter for the bot"""
     GREY = '\x1b[38;21m'
     BLUE = '\x1b[38;5;39m'
     YELLOW = '\x1b[38;5;226m'
@@ -64,6 +62,7 @@ def setup_logging() -> None:
     ------
     `%(asctime)s | %(levelname)8s | %(name)20s : %(message)s`
     """
+    LOG_DIR = pathlib.Path() / 'logs'
     LOG_DIR.mkdir(exist_ok=True)
 
     root_logger = logging.getLogger()

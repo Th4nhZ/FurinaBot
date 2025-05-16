@@ -23,6 +23,13 @@ from core import FurinaBot, Lavalink, settings, utils
 
 
 async def main(*, skip_ll: bool) -> None:
+    """Setting up loggings and starting the bot.
+    
+    Parameters
+    ----------
+    skip_ll : :obj:`bool`
+        Whether to skip Lavalink or not.
+    """
     utils.setup_logging()
     async with ClientSession() as client_session, \
         FurinaBot(client_session=client_session, skip_lavalink=skip_ll) as bot:

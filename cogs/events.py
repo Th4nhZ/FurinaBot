@@ -15,7 +15,6 @@ limitations under the License.
 from __future__ import annotations
 
 import logging
-import traceback
 from typing import TYPE_CHECKING, Any
 
 from discord import Activity, ActivityType, DMChannel, Member, Message, ui
@@ -31,20 +30,19 @@ if TYPE_CHECKING:
 
 class BotEvents(FurinaCog):
     async def update_activity(self, state: str = "N̸o̸t̸h̸i̸n̸g̸") -> None:
-        """
-        Update the bot's activity to the playing track.
+        """Update the bot's activity to the playing track.
 
         Parameters
-        -----------
-        bot: `commands.Bot`
-            bot
-        state: `str`
+        ----------
+        state: :class:`str`
             Track name
         """
         await self.bot.change_presence(
-            activity=Activity(type=ActivityType.playing, 
-                              name=settings.ACTIVITY_NAME, 
-                              state=f"Playing: {state}")
+            activity=Activity(
+                type=ActivityType.playing, 
+                name=settings.ACTIVITY_NAME, 
+                state=f"Playing: {state}"
+            )
         )
 
     @commands.Cog.listener()
@@ -52,7 +50,7 @@ class BotEvents(FurinaCog):
         if message.author.bot:
             return
 
-        # Processing DMs
+        # Bot's DM will be logged anonymously
         if isinstance(message.channel, DMChannel):
             await message.forward(self.bot.get_user(self.bot.owner_id))
 
@@ -68,11 +66,10 @@ class BotEvents(FurinaCog):
         view = ui.LayoutView().add_item(ui.Container(ui.TextDisplay(err)))
         await ctx.reply(view=view, ephemeral=True, delete_after=60)
 
-        logging.error(
-            "Command: %s | Error: %s | Traceback: %s",
+        logging.exception(
+            "Command: %s | Error: %s",
             ctx.command,
-            error,
-            traceback.format_exc()
+            error
         )
 
     @commands.Cog.listener()
