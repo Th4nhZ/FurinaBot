@@ -321,12 +321,12 @@ class WordleABC(LayoutView):
     @property
     def header(self) -> ui.Section:
         game = "## LETTERLE" if len(self.word) == 1 else f"## WORDLE ({len(self.word)} LETTERS)"
+        status = ("(WIN)" if self._is_winning else "(LOST)") if self.is_over else ""
         return ui.Section(
-            ui.TextDisplay(game),
-            ui.TextDisplay(f"### Player: {self.owner.mention}"),
-            ui.TextDisplay(f"**Attempts left:** `{self.attempt}`" +
-                           (f" **({'WIN' if self._is_winning else 'LOST'})**"
-                            if self.is_over else '')
+            ui.TextDisplay(
+                f"{game}\n"
+                f"### Player: {self.owner.mention}\n"
+                f"**Attempts left:** `{self.attempt}` {status}"
             ),
             accessory=ui.Thumbnail(self.owner.avatar.url),
             row=0
@@ -548,22 +548,20 @@ class WordleView(WordleABC):
         """Validating the guess
 
         Checking priority: history -> database
+        English word database: https://github.com/dwyl/english-words/blob/master/words_alpha.txt
 
         Parameters
         ----------
-        guess : str
+        guess : :class:`str`
             The guessed word
 
         Returns
         -------
-        bool
-            True if the guess is a valid word, else False
+        :class:`bool`
+            `True` if the guess is a valid word, else `False`
         """
         if guess in self.history:
-            # Accessing history would be the fastest way
             return True
-        # If it isn't tho we use the database to check
-        # to avoid ratelimit on dictionary call
         async with self.word_db.acquire() as conn:
             result = await conn.fetchone(
                 "SELECT COUNT(*) FROM valid_word WHERE word = ? LIMIT 1", guess
@@ -618,14 +616,14 @@ class Letterle(WordleABC):
                  pool: asqlite.Pool) -> None:
         self.buttons: list[LetterleButton] = \
             [LetterleButton(self.ALPHABET[i]) for i in range(len(self.ALPHABET))]
-        super().__init__(bot=bot, word=letter, owner=owner, solo=False, attempt=25, pool=pool)
+        super().__init__(bot=bot, word=letter, owner=owner, solo=True, attempt=25, pool=pool)
 
     @property
     def container(self) -> ui.Container:
         container = ui.Container(
             *[ui.ActionRow(
-                *self.buttons[i:i + 5], row=2 + i // 5
-            ) for i in range(0, len(self.ALPHABET), 5)]
+                *self.buttons[i:i + 4], row=2 + i // 4
+            ) for i in range(0, len(self.ALPHABET), 4)]
         )
         container.add_item(self.header)  # 0
         container.add_item(ui.Separator(row=1))
@@ -635,13 +633,19 @@ class Letterle(WordleABC):
         return container
 
 
-class LetterleButton(ui.Button):
+class LetterleButton(ui.Button[Letterle]):
     def __init__(self, letter: str, status: WordleLetterStatus = WordleLetterStatus.UNUSED) -> None:
         emoji = Minigames.WORDLE_EMOJIS[letter][status]
         super().__init__(emoji=emoji)
         self.letter = letter
 
     async def callback(self, interaction: Interaction) -> None:
+        if interaction.user != self.view.owner:
+            await interaction.response.send_message(
+                "You can not play this game",
+                ephemeral=True
+            )
+            return
         assert self.view is not None
         view: Letterle = self.view
         view.attempt -= 1

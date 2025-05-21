@@ -53,7 +53,7 @@ class View(ui.View):
             await super().on_error(interaction, error, item)
 
     async def on_timeout(self) -> None:
-        if not hasattr(self, 'message'):
+        if self.message is None:
             return
         for child in self.children:
             child.disabled = True
@@ -114,7 +114,7 @@ class PaginatedView(View):
 class LayoutView(ui.LayoutView):
     def __init__(self, *, timeout: float = 180) -> None:
         super().__init__(timeout=timeout)
-        self.cd = CooldownMapping.from_cooldown(rate=1, per=2, type=self.key)
+        self.cd = CooldownMapping.from_cooldown(rate=1, per=1, type=self.key)
 
     @staticmethod
     def key(interaction: Interaction) -> User:
@@ -128,16 +128,14 @@ class LayoutView(ui.LayoutView):
 
     async def on_error(self, interaction: Interaction, error: Exception, item: ui.Item) -> None:
         if isinstance(error, UIElementOnCoolDownError):
-            seconds = int(error.retry_after)
-            unit = 'second' if seconds == 1 else 'seconds'
             await interaction.response.send_message(
-                f"You are clicking too fast, try again in {seconds} {unit}!", ephemeral=True
+                "Slow down! You are clicking too fast!", ephemeral=True
             )
         else:
             await super().on_error(interaction, error, item)
 
     async def on_timeout(self) -> None:
-        if not hasattr(self, 'message'):
+        if self.message is None:
             return
         for child in self.walk_children():
             child.disabled = True

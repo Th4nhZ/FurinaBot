@@ -209,7 +209,7 @@ class Utils(FurinaCog):
             ui.TextDisplay(f"**Bot Latency:** `{bot_latency * 1000:.2f}ms`\n"
                            f"**Voice Latency:** `{voice_latency}ms`\n"
                            f"**Database Latency:** `{db_latency * 1000:.2f}ms`"),
-            ui.TextDisplay("-# Coded by ThanhZ", row=9)
+            ui.TextDisplay("-# Coded by ThanhZ")
         )
         if node_statuses:
             container.add_item(ui.Separator())
